@@ -1,5 +1,9 @@
 # Build a CPack driven installer package
 if (BUILD_PACKAGE)
+	# Windows package everything to base directory, otherwise lib is separate.
+	if (windows)
+		set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "/")
+	endif (windows)
 	include (InstallRequiredSystemLibraries)
 
 	set (CPACK_RESOURCE_FILE_LICENSE

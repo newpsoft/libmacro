@@ -161,13 +161,9 @@ add_custom_target(DISTFILES SOURCES
 	style
 	)
 
+# Windows package everything to base directory, otherwise lib is separate.
 if (windows)
-	install(TARGETS ${LIBMACRO_TARGET}
-		LIBRARY DESTINATION bin
-		)
-	install(TARGETS ${LIBMACRO_TARGET}
-		ARCHIVE DESTINATION lib
-		)
+	install(TARGETS ${LIBMACRO_TARGET} DESTINATION /)
 else ()
 	install(TARGETS ${LIBMACRO_TARGET} DESTINATION lib)
 endif (windows)

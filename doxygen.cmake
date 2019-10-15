@@ -8,8 +8,8 @@ if (BUILD_DOC)
 	find_package(Doxygen)
 	if (Doxygen_FOUND)
 		# Files used by doxygen
-		set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
-		set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+		set(DOXYGEN_IN "${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in")
+		set(DOXYGEN_OUT "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile")
 
 		configure_file("${DOXYGEN_IN}" "${DOXYGEN_OUT}" @ONLY)
 
