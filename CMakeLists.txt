@@ -155,6 +155,7 @@ if (NOT MCR_NOQT)
 	target_link_libraries(tst_libmacro ${LIBMACRO_TARGET} Qt5::Test)
 endif (NOT MCR_NOQT)
 
+# Make files visible in editor, and use astyle in-editor.
 add_custom_target(DISTFILES SOURCES
 	libmacro.astylerc
 	README.md
