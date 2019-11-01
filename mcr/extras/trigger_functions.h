@@ -23,8 +23,7 @@
 #ifndef MCR_EXTRAS_TRIGGER_FUNCTIONS_H_
 #define MCR_EXTRAS_TRIGGER_FUNCTIONS_H_
 
-#include <QObject>
-#include <QVariantMap>
+#include <QtCore>
 
 #include "mcr/extras/wrap_trigger.h"
 #include "mcr/extras/iserializer.h"

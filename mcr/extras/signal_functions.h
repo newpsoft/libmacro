@@ -23,8 +23,7 @@
 #ifndef MCR_EXTRAS_SIGNAL_FUNCTIONS_H_
 #define MCR_EXTRAS_SIGNAL_FUNCTIONS_H_
 
-#include <QObject>
-#include <QVariantMap>
+#include <QtCore>
 
 #include "mcr/extras/wrap_signal.h"
 #include "mcr/extras/iserializer.h"
