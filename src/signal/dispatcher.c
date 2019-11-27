@@ -36,15 +36,15 @@ bool mcr_dispatch(struct mcr_context *ctx, struct mcr_Signal *sigPt)
 	if (dispPt) {
 		if (dispPt->dispatch(dispPt, sigPt, mods))
 			return true;
+		if (dispPt->modifier)
+			dispPt->modifier(dispPt, sigPt, &modSignal->internal_modifiers);
 	}
 	if (isGen) {
 		if (genPt->dispatch(genPt, sigPt, mods))
 			return true;
+		if (genPt->modifier)
+			genPt->modifier(genPt, sigPt, &modSignal->internal_modifiers);
 	}
-	if (dispPt && dispPt->modifier)
-		dispPt->modifier(dispPt, sigPt, &modSignal->internal_modifiers);
-	if (isGen && genPt->modifier)
-		genPt->modifier(genPt, sigPt, &modSignal->internal_modifiers);
 	return false;
 }
 

@@ -52,29 +52,11 @@ int mcr_Signal_deinit(void *signalPt)
 
 int mcr_send(struct mcr_context *ctx, struct mcr_Signal *sigPt)
 {
-	/* sync this code with mcr_dispatch */
-	/* if no interface, or is blocked by dispatch, return success */
-	struct mcr_signal *modSignal = &ctx->signal;
-	struct mcr_Dispatcher *dispPt =
-			sigPt ? sigPt->isignal->dispatcher : NULL, *genPt =
-				modSignal->generic_dispatcher_pt;
-	bool isGen = genPt && modSignal->is_generic_dispatcher;
-	unsigned int mods = modSignal->internal_modifiers;
-	if (dispPt) {
-		if (dispPt->dispatch(dispPt, sigPt, mods))
-			return 0;
-	}
-	if (isGen) {
-		if (genPt->dispatch(genPt, sigPt, mods))
-			return 0;
-	}
-	if (dispPt && dispPt->modifier)
-		dispPt->modifier(dispPt, sigPt, &modSignal->internal_modifiers);
-	if (isGen && genPt->modifier)
-		genPt->modifier(genPt, sigPt, &modSignal->internal_modifiers);
-	return sigPt->isignal ? sigPt->is_dispatch
-		   && mcr_dispatch(ctx,
-						   sigPt) ? 0 : sigPt->isignal->send(sigPt) : 0;
+	if (!sigPt)
+		return 0;
+	if (sigPt->is_dispatch && mcr_dispatch(ctx, sigPt))
+		return 0;
+	return sigPt->isignal ? sigPt->isignal->send(sigPt) : 0;
 }
 
 int mcr_Signal_copy(void *dstPt, const void *srcPt)
