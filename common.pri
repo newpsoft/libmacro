@@ -1,7 +1,7 @@
 #Libmacro definitions, no additional linking
 include(libmacro.pri)
 GIT_REVISION = $$system(git rev-list --count --first-parent master)
-GIT_BRANCH = $$system(git branch --show-current)
+GIT_BRANCH = $$system(git symbolic-ref --short HEAD)
 DEFINES += GIT_REVISION=$${GIT_REVISION} GIT_BRANCH=$${GIT_BRANCH}
 VERSION = $${MCR_VER}.$${GIT_REVISION}
 #Always threaded and C/C++ 2011 standards
