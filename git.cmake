@@ -11,11 +11,11 @@ if ("${GIT_MASTER_REF}" STREQUAL "")
 	execute_process(
 		COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
 		branch master origin/master)
-else ()
-	execute_process(
-		COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
-		update-ref refs/heads/master refs/remotes/origin/master
-		)
+#else ()
+#	execute_process(
+#		COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
+#		update-ref refs/heads/master refs/remotes/origin/master
+#		)
 endif ()
 
 execute_process(
