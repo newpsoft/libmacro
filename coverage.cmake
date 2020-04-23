@@ -4,7 +4,7 @@ else ()
 	option(BUILD_TESTING "Also build tests." OFF)
 endif ()
 if (BUILD_TESTING)
-	enable_testing()
+	enable_testing(true)
 	include(CTest)
 
 	if (TARGET tst_libmacro)
