@@ -60,7 +60,7 @@ const char *mcr_Key_name(struct mcr_context *ctx, int keyCode)
 	if (keyCode == MCR_KEY_ANY)
 		return ctx->standard.key_name_any.array;
 	ret = mcr_StringIndex_name(&ctx->standard.key_name_index, (size_t)keyCode);
-	return ret ? ret : ctx->standard.key_name_any.array;
+	return ret ? ret : "";
 }
 
 size_t mcr_Key_count(struct mcr_context * ctx)

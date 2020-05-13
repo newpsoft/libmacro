@@ -39,7 +39,7 @@ const char *mcr_HidEcho_name(struct mcr_context *ctx, size_t eventCode)
 	if (eventCode == MCR_ECHO_ANY)
 		return ctx->standard.echo_name_any.array;
 	ret = mcr_StringIndex_name(&ctx->standard.echo_name_index, eventCode);
-	return ret ? ret : ctx->standard.echo_name_any.array;
+	return ret ? ret : "";
 }
 
 size_t mcr_HidEcho_count(struct mcr_context * ctx)
