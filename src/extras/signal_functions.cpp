@@ -108,7 +108,7 @@ unsigned int SignalFunctions::modifier(const QString &name) const
 QString SignalFunctions::modifierName(unsigned int mod) const
 {
 	if (mod == static_cast<unsigned int>(-1))
-		return tr("All");
+		return "All";
 	return mcr_ModFlags_name(context()->ptr(), mod);
 }
 

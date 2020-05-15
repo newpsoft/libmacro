@@ -26,17 +26,17 @@ IInterrupt *Interrupt::defaultInterrupt = nullptr;
 //{
 //	switch (val) {
 //	case MCR_CONTINUE:
-//		return tr("Enable/Continue");
+//		return "Continue";
 //	case MCR_PAUSE:
-//		return tr("Pause");
+//		return "Pause";
 //	case MCR_INTERRUPT:
-//		return tr("Interrupt One");
+//		return "Interrupt One";
 //	case MCR_INTERRUPT_ALL:
-//		return tr("Interrupt All");
+//		return "Interrupt All";
 //	case MCR_DISABLE:
-//		return tr("Disable");
+//		return "Disable";
 //	}
-//	return tr("Unknown");
+//	return "Unknown";
 //}
 
 Interrupt::Interrupt(IInterrupt *iintercept,
