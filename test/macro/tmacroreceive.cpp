@@ -1,5 +1,7 @@
 #include "tmacroreceive.h"
 
+#include <chrono>
+#include <thread>
 /* QCOMPARE = {actual, expected} */
 
 void TMacroReceive::initTestCase()

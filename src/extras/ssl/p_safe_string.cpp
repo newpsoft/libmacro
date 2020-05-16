@@ -209,10 +209,14 @@ void SafeString::sha(const char *text, size_t length,
 void SafeString::initialize()
 {
 	if (!_initCount++) {
+#if OPENSSL_VERSION_NUMBER > 0x1000207fL
 		OPENSSL_init_crypto(OPENSSL_INIT_NO_ADD_ALL_CIPHERS | OPENSSL_INIT_NO_ADD_ALL_DIGESTS, nullptr);
-//		OPENSSL_config(nullptr);
 		ERR_load_CRYPTO_strings();
-//		OPENSSL_add_all_algorithms_noconf();
+#else
+		OPENSSL_config(nullptr);
+		ERR_load_CRYPTO_strings();
+		OPENSSL_add_all_algorithms_noconf();
+#endif
 		if (!EVP_add_cipher(EVP_aes_256_cbc()) ||
 			!EVP_add_cipher(EVP_aes_256_gcm())) {
 			localOnErr();
