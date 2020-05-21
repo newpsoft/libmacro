@@ -323,19 +323,31 @@ int mcr_Key_Dispatcher_clear(void *dispDataPt)
 	return 0;
 }
 
+static bool mcr_Key_Dispatcher_dispatch_to(struct mcr_Array *arrPt,
+		struct mcr_Signal * signalPt, unsigned int mods)
+{
+	dassert(arrPt);
+	char *itPt, *endPt;
+	size_t bytes;
+	mcr_Array_iter(arrPt, &itPt, &endPt, &bytes);
+	while (itPt < endPt) {
+		dassert(((struct mcr_DispatchPair *)itPt)->dispatch);
+		if (((struct mcr_DispatchPair *)itPt)->dispatch(*(void **)itPt, signalPt, mods))
+			return true;
+		itPt += bytes;
+	}
+	return false;
+}
+
 /// \todo iterator instead of "for each"
 bool mcr_Key_Dispatcher_dispatch(void *dispDataPt,
 								 struct mcr_Signal * signalPt, unsigned int mods)
 {
-#define localDispAll(itPt) \
-	dassert(((struct mcr_DispatchPair *)itPt)->dispatch); \
-	if (((struct mcr_DispatchPair *)itPt)->dispatch(*(void **)itPt, signalPt, mods)) \
-		return true;
-#define localDispArrPt \
+#define local_dispatch_safety(arrPt) \
 	if (arrPt) { \
-		MCR_ARR_FOR_EACH(*arrPt, localDispAll); \
+		if (mcr_Key_Dispatcher_dispatch_to(arrPt, signalPt, mods))	\
+			return true; \
 	}
-
 	struct mcr_CtxDispatcher *dispMapPt = dispDataPt;
 	struct mcr_Key *keyPt = mcr_Key_data(signalPt);
 	struct mcr_Map *maps = dispMapPt->ctx->standard.key_dispatcher_maps;
@@ -349,29 +361,34 @@ bool mcr_Key_Dispatcher_dispatch(void *dispDataPt,
 			/* Specific up type */
 			if (key != MCR_KEY_ANY) {
 				arrPt = mcr_Map_value(maps + applyType, &key);
-				localDispArrPt;
+				local_dispatch_safety(arrPt);
 			}
 			arrPt = mcr_Map_value(maps + applyType, &mcr_Key_gen_key);
-			localDispArrPt;
+			local_dispatch_safety(arrPt);
 		} else {
 			/* Generic up type */
 			if (key != MCR_KEY_ANY) {
 				arrPt = mcr_Map_value(maps, &key);
-				localDispArrPt;
+				local_dispatch_safety(arrPt);
 				arrPt = mcr_Map_value(maps + 1, &key);
-				localDispArrPt;
+				local_dispatch_safety(arrPt);
+			} else {
+				/* both generic */
+				arrPt = mcr_Map_value(maps, &mcr_Key_gen_key);
+				local_dispatch_safety(arrPt);
+				arrPt = mcr_Map_value(maps + 1, &mcr_Key_gen_key);
+				local_dispatch_safety(arrPt);
 			}
 		}
+	} else {
+		/* all generic */
+		arrPt = mcr_Map_value(maps, &mcr_Key_gen_key);
+		local_dispatch_safety(arrPt);
+		arrPt = mcr_Map_value(maps + 1, &mcr_Key_gen_key);
+		local_dispatch_safety(arrPt);
 	}
-	/* all generic */
-	/// \bug Generic receivers may receive twice
-	arrPt = mcr_Map_value(maps, &mcr_Key_gen_key);
-	localDispArrPt;
-	arrPt = mcr_Map_value(maps + 1, &mcr_Key_gen_key);
-	localDispArrPt;
 	return false;
-#undef localDispArrPt
-#undef localDispAll
+#undef local_dispatch_safety
 }
 
 void mcr_Key_Dispatcher_modifier(void *dispDataPt,
