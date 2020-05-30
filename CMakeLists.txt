@@ -148,12 +148,12 @@ target_compile_definitions(${LIBMACRO_TARGET} PRIVATE
 	)
 
 # Test
-if (NOT MCR_NOQT)
+if (NOT MCR_NOQT AND BUILD_TESTING)
 	file(GLOB_RECURSE TEST_SRC test/*.h test/*.cpp)
 	add_executable(tst_libmacro ${TEST_SRC})
 	add_dependencies(tst_libmacro ${LIBMACRO_TARGET})
 	target_link_libraries(tst_libmacro ${LIBMACRO_TARGET} Qt5::Test)
-endif (NOT MCR_NOQT)
+endif (NOT MCR_NOQT AND BUILD_TESTING)
 
 # Make files visible in editor, and use astyle in-editor.
 add_custom_target(DISTFILES SOURCES
