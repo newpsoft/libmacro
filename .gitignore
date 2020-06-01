@@ -92,3 +92,4 @@ CMakeFiles/
 cmake_install.cmake
 *_automoc.cpp
 tst_libmacro
+CMakeCache.txt
