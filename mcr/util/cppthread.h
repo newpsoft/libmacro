@@ -25,7 +25,7 @@
 #ifndef MCR_UTIL_CPPTHREAD_H_
 #define MCR_UTIL_CPPTHREAD_H_
 
-#include "mcr/util/def.h"
+#include "mcr/globals.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,14 +53,14 @@ MCR_API int thrd_sleep_until(struct tm *time_point);
 /* */
 /* enums */
 /* */
-enum {				/* undefined values. */
+enum {
 	thrd_success = 0,
 	thrd_nomem,
 	thrd_timedout,
 	thrd_busy,
 	thrd_error
 };
-enum {				/* undefined values. */
+enum {
 	mtx_plain = 0,
 	mtx_recursive = 1 << 0,
 	mtx_timed = 1 << 1
@@ -71,7 +71,7 @@ enum {				/* undefined values. */
 /* */
 typedef int once_flag;
 
-typedef int (*thrd_start_t) (void *);
+typedef int (*thrd_start_t)(void *);
 
 /* */
 /* Temporary solution. Until threading is implemented in C we have */

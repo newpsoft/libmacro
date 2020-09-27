@@ -16,8 +16,7 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/standard/linux/p_device.h"
-#include "mcr/standard/standard.h"
+#include "mcr/standard/linux/p_standard.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -28,19 +27,39 @@
 #include <string.h>
 #include <sys/stat.h>
 
-MCR_API struct mcr_Device mcr_genDev;
-MCR_API struct mcr_Device mcr_absDev;
+#include "mcr/libmacro.h"
 
 const MCR_API struct input_event mcr_syncer = {
 	.type = EV_SYN,
 	.code = SYN_REPORT
 };
 
-MCR_API __s32 mcr_abs_resolution = MCR_ABS_RESOLUTION;
+/* Default device event bits */
+static const int genUiEvents[] = {
+	EV_KEY, EV_REL, EV_MSC, EV_SND, EV_REP
+};
+/* Do not write key 0 value */
+static const mcr_EvbitRange_t keyRange = { UI_SET_KEYBIT, 1, KEY_MAX };
+static const mcr_EvbitRange_t relRange = { UI_SET_RELBIT, 0, REL_MAX };
+static const mcr_EvbitRange_t mscRange = { UI_SET_MSCBIT, 0, MSC_MAX };
+static const mcr_EvbitRange_t sndRange = { UI_SET_SNDBIT, 0, SND_MAX };
+/* Pointer and direct properties are actually just 0 and 1 */
+static const mcr_EvbitRange_t pointerRange = { UI_SET_PROPBIT, INPUT_PROP_POINTER, INPUT_PROP_POINTER };
+/* All of the above = 5 */
+static mcr_EvbitRange_t genDevRanges[5];
 
-static mcr_String _uinputPath;
-static mcr_String _eventPath;
-static mtx_t _deviceLock;
+/* Need at least one button to make a pointer device. */
+static const int absUiEvents[] = {
+	EV_KEY, EV_ABS
+};
+/* Not used, but required to be set up correctly */
+static const mcr_EvbitRange_t absKeyRange = { UI_SET_KEYBIT, BTN_LEFT, BTN_LEFT };
+/* ABS_X = 0 */
+static const mcr_EvbitRange_t absRange = { UI_SET_ABSBIT, ABS_X, ABS_MISC };
+/* + pointer */
+static const mcr_EvbitRange_t directRange = { UI_SET_PROPBIT, INPUT_PROP_DIRECT, INPUT_PROP_DIRECT };
+/* All of the above = 4 */
+static mcr_EvbitRange_t absDevRanges[4];
 
 /* Open uinput ( devPt->fd ) and write device to it. */
 static int device_open(struct mcr_Device *devPt);
@@ -50,103 +69,79 @@ static int device_open_event(struct mcr_Device *devPt);
 static int device_close(struct mcr_Device *devPt);
 /* Close devPt->eventFd. */
 static int device_close_event(struct mcr_Device *devPt);
-/* Open event device ( devPt->eventFd ) from current working directory. */
-static int device_open_event_wd(struct mcr_Device *devPt);
-/* Verify devPt->eventFd is correct for given device. */
-static bool device_is_event_me(struct mcr_Device *devPt,
-							   char *nameBuffer, bool isJoy);
-/* Write event to device for all values in bits. */
-static int device_write_bits(struct mcr_Device *devPt, int event,
-							 struct mcr_Array *bits);
 /* Write all UI_SET_EVBIT values for given device. */
-static int device_write_evbit(struct mcr_Device *devPt);
+static int device_write_events(struct mcr_Device *devPt);
 /* Write all non-UI_SET_EVBIT values for given device. */
-static int device_write_non_evbit(struct mcr_Device *devPt);
+static int device_write_evbits(struct mcr_Device *devPt);
 /* Write UI_DEV_CREATE after writing all evbits to device. */
 static int device_create(struct mcr_Device *devPt);
 
-static int genDevice_init();
-static int absDevice_init();
+static void genDevice_init(struct mcr_context *ctx);
+static void absDevice_init(struct mcr_context *ctx);
 
-static int init_IntArray(void *data)
+int mcr_Device_set_uinput_path(struct mcr_context *ctx, const char *path)
 {
-	if (data) {
-		mcr_Array_init(data);
-		((struct mcr_Array *)data)->element_size = sizeof(int);
+	if (!path || !path[0])
+		error_set_return(ENODEV);
+	ctx->standard.platform_pt->uinput_path = path;
+	return (mcr_err = 0);
+}
+
+int mcr_Device_set_event_path(struct mcr_context *ctx, const char *directoryPath)
+{
+	if (!directoryPath || !directoryPath[0])
+		error_set_return(ENODEV);
+	ctx->standard.platform_pt->event_path = directoryPath;
+	return (mcr_err = 0);
+}
+
+int mcr_Device_set_absolute_resolution(struct mcr_context *ctx, __s32 resolution)
+{
+	struct mcr_standard_platform *standardPt = ctx->standard.platform_pt;
+	standardPt->abs_resolution = resolution;
+	if (standardPt->abs_dev.enabled) {
+		if (mcr_Device_enable(&standardPt->abs_dev, false))
+			return mcr_err;
+		return mcr_Device_enable(&standardPt->abs_dev, true);
 	}
 	return 0;
 }
 
-/* Initialize and deinit array of integers */
-static const struct mcr_Interface _iIntArray = {
-	.data_size = sizeof(struct mcr_Array),
-	.init = init_IntArray,
-	.deinit = mcr_Array_deinit
-};
-
-int mcr_Device_set_uinput_path(const char *path)
+void mcr_Device_ctor(struct mcr_Device *devPt, struct mcr_context *ctx, const char *name, const int *setEvents, size_t setEventCount, const mcr_EvbitRange_t *eventBits, size_t eventBitCount)
 {
-	if (!path || path[0] == '\0')
-		return ENODEV;
-	return mcr_String_replace(&_uinputPath, path);
-}
-
-int mcr_Device_set_event_path(const char *directoryPath)
-{
-	if (!directoryPath || directoryPath[0] == '\0')
-		return ENODEV;
-	return mcr_String_replace(&_eventPath, directoryPath);
-}
-
-int mcr_Device_set_absolute_resolution(__s32 resolution)
-{
-	bool wasEnabled = mcr_absDev.enabled;
-	mcr_abs_resolution = resolution;
-	mcr_Device_deinit(&mcr_absDev);
-	if (absDevice_init())
-		return mcr_err;
-	if (wasEnabled)
-		return mcr_Device_enable(&mcr_absDev, true);
-	return 0;
-}
-
-int mcr_Device_init(void *dataPt)
-{
-	struct mcr_Device *localPt = dataPt;
-	if (localPt) {
-		memset(dataPt, 0, sizeof(struct mcr_Device));
-		localPt->fd = -1;
-		localPt->event_fd = -1;
-		mcr_Map_init(&localPt->type_value_map);
-		mcr_Map_set_all(&localPt->type_value_map, sizeof(int),
-						sizeof(struct mcr_Array), mcr_int_compare, NULL,
-						&_iIntArray);
-	}
-	return 0;
-}
-
-int mcr_Device_deinit(void *dataPt)
-{
-	struct mcr_Device *devPt = dataPt;
 	if (devPt) {
-		mcr_Device_enable(devPt, false);
-		mcr_Map_deinit(&devPt->type_value_map);
-		mcr_Device_init(devPt);
+		ZERO_PTR(devPt);
+		devPt->context = ctx;
+		devPt->fd = -1;
+		devPt->event_fd = -1;
+		if (name)
+			snprintf(devPt->device.name, UINPUT_MAX_NAME_SIZE, name);
+		devPt->set_events = setEvents;
+		devPt->set_event_count = setEventCount;
+		devPt->event_bits = eventBits;
+		devPt->event_bit_count = eventBitCount;
 	}
-	return 0;
 }
 
-static inline int mtx_unlock_error(int mtxError)
+void mcr_Device_deinit(struct mcr_Device *devPt)
+{
+	if (devPt)
+		mcr_Device_enable(devPt, false);
+}
+
+static int mtx_unlock_error(struct mcr_context *ctx, int mtxError)
 {
 	if (mtxError == thrd_success)
-		mtx_unlock(&_deviceLock);
+		mtx_unlock(&ctx->standard.platform_pt->device_lock);
 	return mcr_err;
 }
 
 int mcr_Device_enable(struct mcr_Device *devPt, bool enable)
 {
+	struct mcr_standard_platform *standardPt = devPt->context->standard.platform_pt;
 	int mtxErr = thrd_success;
 	dassert(devPt);
+	mcr_err = 0;
 	devPt->enabled = false;
 	if (device_close_event(devPt))
 		return mcr_err;
@@ -156,127 +151,148 @@ int mcr_Device_enable(struct mcr_Device *devPt, bool enable)
 	/* disable complete */
 	if (!enable)
 		return 0;
+
 	/* Cannot have device with no evbits to set.
 	 * Must have at least 1 UI_SET_EVBIT. */
 	if (!mcr_Device_has_evbit(devPt))
-		mset_error_return(EPERM);
-	if ((mtxErr = mtx_lock(&_deviceLock)) != thrd_success) {
-		mtxErr = mcr_thrd_errno(mtxErr);
-		mset_error_return(mtxErr);
-	}
-	mcr_err = 0;
+		error_set_return(EINVAL);
+	mtxErr = mtx_lock(&standardPt->device_lock);
 	/* Start by opening. */
 	if (device_open(devPt))
-		return mtx_unlock_error(mtxErr);
+		return mtx_unlock_error(devPt->context, mtxErr);
 	/* Force evbit satisfaction. */
-	if (device_write_evbit(devPt))
-		return mtx_unlock_error(mtxErr);
+	if (device_write_events(devPt))
+		return mtx_unlock_error(devPt->context, mtxErr);
 	/* Then write all other bits. Ensured at least one mapping pair. */
-	if (device_write_non_evbit(devPt))
-		return mtx_unlock_error(mtxErr);
+	if (device_write_evbits(devPt))
+		return mtx_unlock_error(devPt->context, mtxErr);
 	if (device_create(devPt))
-		return mtx_unlock_error(mtxErr);
-	/* Created and ready. valid true is all good, false means some */
-	/* non-UI_SET_EVBIT did not work. */
+		return mtx_unlock_error(devPt->context, mtxErr);
+
 	devPt->enabled = true;
 	device_open_event(devPt);
-	if (mtxErr == thrd_success)
-		mtx_unlock(&_deviceLock);
-	return mcr_err;
+	return mtx_unlock_error(devPt->context, mtxErr);
 }
 
-int mcr_Device_enable_all(bool enable)
+int mcr_Device_enable_all(struct mcr_context *ctx, bool enable)
 {
-	if (mcr_Device_enable(&mcr_genDev, enable) ||
-		mcr_Device_enable(&mcr_absDev, enable))
+	if (mcr_Device_enable(&ctx->standard.platform_pt->gen_dev, enable))
 		return mcr_err;
-	return 0;
+	return mcr_Device_enable(&ctx->standard.platform_pt->abs_dev, enable);
 }
 
-int mcr_Device_set_bits(struct mcr_Device *devPt, int bitType, int *bits,
-						size_t bitLen)
+void mcr_Device_set_uibit(struct mcr_Device *devPt, int *uiEvents, size_t count)
 {
-	struct mcr_Array *element =
-		mcr_Map_element_ensured(&devPt->type_value_map,
-								&bitType);
-	if (element)
-		element = mcr_Map_valueof(&devPt->type_value_map, element);
-	dassert(devPt);
-	dassert(bits);
-	dassert(bitLen != (size_t) ~ 0);
-	return element ? mcr_Array_replace(element, bits, bitLen) : mcr_err;
+	devPt->set_events = uiEvents;
+	devPt->set_event_count = count;
 }
 
-struct mcr_Array *mcr_Device_bits(struct mcr_Device *devPt, int bitType)
+void mcr_Device_set_evbits(struct mcr_Device *devPt, mcr_EvbitRange_t *evBits, size_t count)
 {
-	void *ret = MCR_MAP_ELEMENT(devPt->type_value_map, &bitType);
-	dassert(devPt);
-	return MCR_MAP_VALUEOF(devPt->type_value_map, ret);
+	devPt->event_bits = evBits;
+	devPt->event_bit_count = count;
+}
+
+mcr_EvbitRange_t *mcr_Device_bits(struct mcr_Device *devPt, int setUiBit)
+{
+	return bsearch(&setUiBit, devPt->event_bits, devPt->event_bit_count, sizeof(mcr_EvbitRange_t), mcr_int_compare);
 }
 
 bool mcr_Device_has_evbit(struct mcr_Device * devPt)
 {
-	int evbit = UI_SET_EVBIT;
-	struct mcr_Array *evbit_arr = MCR_MAP_ELEMENT(devPt->type_value_map,
-								  &evbit);
-	dassert(devPt);
-	evbit_arr = MCR_MAP_VALUEOF(devPt->type_value_map, evbit_arr);
-	return evbit_arr && evbit_arr->used;
+	return devPt->set_events && devPt->set_event_count;
 }
 
 static int device_open(struct mcr_Device *devPt)
 {
 	dassert(devPt);
+	const char *path = devPt->context->standard.platform_pt->uinput_path;
+	if (!path || !path[0])
+		error_set_return(ENODEV);
+	mcr_err = 0;
 	/* Close in case previously opened. */
 	if (device_close(devPt))
 		return mcr_err;
-	devPt->fd = open(_uinputPath.array, O_WRONLY | O_SYNC);
+	devPt->fd = open(path, O_WRONLY | O_SYNC);
 	if (devPt->fd == -1) {
 		mcr_errno(EINTR);
 		return mcr_err;
 	}
-	if (write(devPt->fd, &devPt->device, sizeof(devPt->device)) !=
-		sizeof(devPt->device)) {
-		mcr_errno(EINTR);
-		device_close(devPt);
-		return mcr_err;
-	}
+	//! \todo
+//	int version, rc;
+//	rc = ioctl(devPt->fd, UI_GET_VERSION, &version);
 	return 0;
+}
+
+static bool str_ends_with_separator(const char *str)
+{
+	const char *iter;
+	if (!str || !*str)
+		return false;
+	/* Move iter to null-term */
+	for (iter = str; *iter; ++iter) {}
+	/* One before null-term is path separator */
+	return *(--iter) == '/';
 }
 
 static int device_open_event(struct mcr_Device *devPt)
 {
-	long int size;
-	char *wd;
-	char *ptr;
 	dassert(devPt);
-	if (device_close_event(devPt))
-		return mcr_err;
-	size = pathconf(".", _PC_PATH_MAX);
-	if (size == -1) {
-		mcr_errno(EINTR);
-		return mcr_err;
-	}
-	wd = malloc(size);
-	if (!wd) {
-		mset_error_return(ENOMEM);
-	}
+	static const char sysNameBase[] = "/sys/devices/virtual/input/";
+	struct mcr_standard_platform *standardPt = devPt->context->standard.platform_pt;
+	const char *path = standardPt->event_path;
+	DIR *dirp;
+	struct dirent *entry;
+	int timeout = MCR_FILE_TRY_COUNT;
+	// Should be in /dev/input and not something longer
+	char buffer[PATH_MAX];
+
+	if (!path || !path[0])
+		error_set_return(ENODEV);
 	mcr_err = 0;
-	/* Get the current working directory to return to later. */
-	ptr = getcwd(wd, size);
-	UNUSED(ptr);
-	if (chdir(_eventPath.array) == -1) {
+
+	/* sizeof string includes null-termination */
+	snprintf(buffer, sizeof(buffer) - 1, "%s", sysNameBase);
+	// strlen sysNameBase == sizeof - 1
+	if (ioctl(devPt->fd, UI_GET_SYSNAME(sizeof(buffer) - sizeof(sysNameBase)), buffer + sizeof(sysNameBase) - 1) < 0) {
 		mcr_errno(EINTR);
-		free(wd);
 		return mcr_err;
 	}
 
-	if (device_open_event_wd(devPt) || chdir(wd) == -1) {
+	dirp = opendir(buffer);
+	if (dirp == NULL) {
 		mcr_errno(EINTR);
-		free(wd);
 		return mcr_err;
 	}
-	free(wd);
+
+	if (device_close_event(devPt))
+		return mcr_err;
+
+	/* if !entry then end of directory */
+	while ((entry = readdir(dirp))) {
+		/* Ignore files without access, and do not fail with lack
+		 * of permissions */
+		if (!strncmp(entry->d_name, "event", 5)) {
+			/* May be either "/dev/input" "/" "event#" or "/dev/input/" "" "event#" */
+			snprintf(buffer, sizeof(buffer) - 1, "%s%s%s", path, str_ends_with_separator(path) ? "" : "/", entry->d_name);
+			/* Device was just written, may not be ready */
+			do {
+				devPt->event_fd = open(buffer, O_RDONLY);
+				/* Avoid sleep on success */
+				if (devPt->event_fd != -1)
+					break;
+				usleep(382000);
+			} while (timeout--);
+			if (devPt->event_fd == -1) {
+				/* Most likely permissions error */
+				mcr_errno(EPERM);
+			}
+			/* Currently only looking for one event */
+			break;
+		}
+	}
+	closedir(dirp);
+	/* If error then it did not open, no need to close. */
 	return mcr_err;
 }
 
@@ -284,8 +300,7 @@ static int device_close(struct mcr_Device *devPt)
 {
 	dassert(devPt);
 	if (devPt->fd != -1) {
-		if (ioctl(devPt->fd, UI_DEV_DESTROY) < 0
-			|| close(devPt->fd) < 0) {
+		if (ioctl(devPt->fd, UI_DEV_DESTROY) < 0 || close(devPt->fd) < 0) {
 			mcr_errno(EINTR);
 			return mcr_err;
 		} else {
@@ -309,139 +324,55 @@ static int device_close_event(struct mcr_Device *devPt)
 	return 0;
 }
 
-static int device_open_event_wd(struct mcr_Device *devPt)
+static int device_write_events(struct mcr_Device *devPt)
 {
-	DIR *dirp = opendir(".");
-	struct dirent *entry;
-	bool isdev;
-	char dev_name[UINPUT_MAX_NAME_SIZE];
-	struct stat s;
 	dassert(devPt);
-	if (dirp == NULL) {
-		mcr_errno(EINTR);
-		return mcr_err;
-	}
-	mcr_err = 0;
-
-	memset(dev_name, 0, sizeof(dev_name));
-	/* if !entry then end of directory */
-	while ((entry = readdir(dirp))) {
-		/* Ignore files without access, and do not fail with lack
-		 * of permissions */
-		if (!access(entry->d_name, R_OK)) {
-			if (stat(entry->d_name, &s) < 0) {
-				mset_error(errno);
-				continue;
-			}
-			/* Our uinput devices are always char devices. */
-			if (S_ISCHR(s.st_mode)) {
-				devPt->event_fd = open(entry->d_name, O_RDONLY);
-				if (devPt->event_fd == -1) {
-					mset_error(errno);
-					continue;
-				}
-
-				isdev = !strncasecmp(entry->d_name, "js", 2) ||
-						!strncasecmp(entry->d_name, "joystick", 8);
-				/* Event fd is set.  If it is correct, finish out. */
-				if ((isdev = device_is_event_me(devPt, dev_name,
-												isdev))) {
-					mcr_err = 0;
-					break;
-				}
-				/* Incorrect dev, continue */
-				if (device_close_event(devPt))
-					break;
-			}
-		}
-	}
-	closedir(dirp);
-	return mcr_err;
-}
-
-static bool device_is_event_me(struct mcr_Device *devPt,
-							   char *nameBuffer, bool isJoy)
-{
-	int comparison = 0, err = 0;
-	dassert(devPt);
-	/* joysticks have different ioctl for names. */
-	if (isJoy) {
-		comparison =
-			ioctl(devPt->event_fd, JSIOCGNAME(UINPUT_MAX_NAME_SIZE),
-				  nameBuffer);
-	} else {
-		comparison =
-			ioctl(devPt->event_fd, EVIOCGNAME(UINPUT_MAX_NAME_SIZE),
-				  nameBuffer);
-	}
-	/* Could not retrieve name, unknown error. */
-	if (comparison < 0) {
-		if ((err = device_close_event(devPt)))
-			return err;
-		return false;
-	}
-	return !strncmp(nameBuffer, devPt->device.name, UINPUT_MAX_NAME_SIZE);
-}
-
-static int device_write_bits(struct mcr_Device *devPt, int setBit,
-							 struct mcr_Array *bits)
-{
 	int fd = devPt->fd;
-	char *itPt, *end;
-	size_t bytes;
-	dassert(devPt);
-	dassert(bits);
-	if (!bits->used)
-		return 0;
-	mcr_Array_iter(bits, &itPt, &end, &bytes);
-	while (itPt < end) {
-		if (ioctl(fd, setBit, *(int *)itPt) < 0) {
-			mcr_errno(EINTR);
-			return mcr_err;
-		}
-		itPt += bytes;
+	/* All devices sync */
+	if (ioctl(fd, UI_SET_EVBIT, EV_SYN))
+		error_set_return(EINTR);
+	/* Write UI bits in order */
+	for (size_t i = 0; i < devPt->set_event_count; i++) {
+		if (ioctl(fd, UI_SET_EVBIT, devPt->set_events[i]) < 0)
+			error_set_return(EINTR);
 	}
 	return 0;
 }
 
-static int device_write_evbit(struct mcr_Device *devPt)
-{
-	int evbit = UI_SET_EVBIT;
-	struct mcr_Array *evbit_arr = MCR_MAP_ELEMENT(devPt->type_value_map,
-								  &evbit);
-	dassert(devPt);
-	evbit_arr = MCR_MAP_VALUEOF(devPt->type_value_map, evbit_arr);
-	return evbit_arr
-		   && evbit_arr->used ? device_write_bits(devPt, evbit,
-				   evbit_arr) : EINVAL;
-}
-
-static int device_write_non_evbit(struct mcr_Device *devPt)
+static int device_write_evbits(struct mcr_Device *devPt)
 {
 	dassert(devPt);
-	int evBit;
-	struct mcr_Array *evbitArr;
-	char *itPt, *end;
-	size_t bytes;
-	/* All non-evbits. */
-	if (!devPt->type_value_map.set.used)
-		mset_error_return(EINVAL);
-	mcr_Map_iter(&devPt->type_value_map, &itPt, &end, &bytes);
-	while (itPt < end) {
-		evBit = *(int *)itPt;
-		if (evBit != UI_SET_EVBIT) {
-			evbitArr = MCR_MAP_VALUEOF(devPt->type_value_map, itPt);
-			if (device_write_bits(devPt, evBit, evbitArr))
-				return mcr_err;
+	int fd = devPt->fd, evbit, setEvbit;
+	const mcr_EvbitRange_t *iter, *end;
+	if (!devPt->event_bit_count)
+		error_set_return(EINVAL);
+	mcr_err = 0;
+	for (iter = devPt->event_bits, end = devPt->event_bits + devPt->event_bit_count; iter < end; iter++) {
+		setEvbit = iter->set_ev_bit;
+		for (evbit = iter->first; evbit <= iter->last; evbit++) {
+			if (ioctl(fd, setEvbit, evbit) < 0) {
+				mcr_errno(EINTR);
+				break;
+			}
 		}
-		itPt += bytes;
 	}
-	return 0;
+	return mcr_err;
 }
 
 static int device_create(struct mcr_Device *devPt)
 {
 	dassert(devPt);
+	if (write(devPt->fd, &devPt->device, sizeof(devPt->device)) != sizeof(devPt->device)) {
+		device_close(devPt);
+		mcr_errno(EINTR);
+		return mcr_err;
+	}
+	//! \todo
+//	if (ioctl(devPt->fd, UI_DEV_SETUP, &devPt->device)) {
+//		device_close(devPt);
+//		mcr_errno(EINTR);
+//		return mcr_err;
+//	}
 	if (ioctl(devPt->fd, UI_DEV_CREATE) < 0) {
 		mcr_errno(EINTR);
 		return mcr_err;
@@ -449,123 +380,71 @@ static int device_create(struct mcr_Device *devPt)
 	return 0;
 }
 
-static inline int gen_dev_set(int arr[], size_t count, int uibit)
+static void genDevice_init(struct mcr_context *ctx)
 {
-	return mcr_Device_set_bits(&mcr_genDev, uibit, arr, count);
+	struct mcr_standard_platform *standardPt = ctx->standard.platform_pt;
+
+	mcr_Device_ctor(&standardPt->gen_dev, ctx, "libmacro-gen", genUiEvents,	arrlen(genUiEvents), genDevRanges, arrlen(genDevRanges));
+
+	standardPt->gen_dev.device.id.bustype = BUS_VIRTUAL;
+	standardPt->gen_dev.device.id.vendor = 1;
+	standardPt->gen_dev.device.id.product = 1;
+	standardPt->gen_dev.device.id.version = 1;
 }
 
-static int genDevice_init()
+static void absDevice_init(struct mcr_context *ctx)
 {
-	int i, err = 0;
-	int evbits[KEY_CNT];
-	int uibits[] = {
-		EV_SYN, EV_KEY, EV_REL, EV_MSC, EV_SND, EV_REP
-	};
-	/* Does not handle abs, sw, led, ff, ff_status */
-	for (i = 0; i < KEY_CNT; i++) {
-		evbits[i] = i;
-	}
+	struct mcr_standard_platform *standardPt = ctx->standard.platform_pt;
+	int i;
+	mcr_Device_ctor(&standardPt->abs_dev, ctx, "libmacro-abs", absUiEvents, arrlen(absUiEvents), absDevRanges, arrlen(absDevRanges));
 
-	mcr_Device_init(&mcr_genDev);
-
-	snprintf(mcr_genDev.device.name, UINPUT_MAX_NAME_SIZE, "libmacro-gen");
-
-	mcr_genDev.device.id.bustype = BUS_VIRTUAL;
-	mcr_genDev.device.id.vendor = 1;
-	mcr_genDev.device.id.product = 1;
-	mcr_genDev.device.id.version = 1;
-
-	if ((err = gen_dev_set(uibits, arrlen(uibits), UI_SET_EVBIT)))
-		return err;
-	/* Do not write 0 value */
-	if ((err = gen_dev_set(evbits + 1, KEY_CNT - 1, UI_SET_KEYBIT)))
-		return err;
-	if ((err = gen_dev_set(evbits, REL_CNT, UI_SET_RELBIT)))
-		return err;
-	if ((err = gen_dev_set(evbits, MSC_CNT, UI_SET_MSCBIT)))
-		return err;
-	if ((err = gen_dev_set(evbits, SND_CNT, UI_SET_SNDBIT)))
-		return err;
-	/* On-screen pointer and mapped directly to screen coordinates */
-	evbits[0] = INPUT_PROP_POINTER;
-	evbits[1] = INPUT_PROP_DIRECT;
-	return gen_dev_set(evbits, 2, UI_SET_PROPBIT);
-}
-
-static int absDevice_init()
-{
-	int i, err = 0;
-	int evbits[] = { EV_SYN, EV_KEY, EV_ABS };
-	int absbits[ABS_MISC + 1];
-	mcr_Device_init(&mcr_absDev);
-
-	snprintf(mcr_absDev.device.name, UINPUT_MAX_NAME_SIZE, "libmacro-abs");
-
-	mcr_absDev.device.id.bustype = BUS_VIRTUAL;
-	mcr_absDev.device.id.vendor = 1;
-	mcr_absDev.device.id.product = 1;
-	mcr_absDev.device.id.version = 1;
+	standardPt->abs_dev.device.id.bustype = BUS_VIRTUAL;
+	standardPt->abs_dev.device.id.vendor = 1;
+	standardPt->abs_dev.device.id.product = 1;
+	standardPt->abs_dev.device.id.version = 1;
 
 	for (i = 0; i <= ABS_MISC; i++) {
-		mcr_absDev.device.absmax[i] = mcr_abs_resolution;
+		standardPt->abs_dev.device.absmax[i] = standardPt->abs_resolution;
 	}
-
-	if ((err = mcr_Device_set_bits(&mcr_absDev, UI_SET_EVBIT, evbits, 3)))
-		return err;
-	/* Not used, but required to be set up correctly */
-	evbits[0] = BTN_LEFT;
-	if ((err = mcr_Device_set_bits(&mcr_absDev, UI_SET_KEYBIT, evbits, 1)))
-		return err;
-	/* On-screen pointer and mapped directly to screen coordinates */
-	evbits[0] = INPUT_PROP_POINTER;
-	evbits[1] = INPUT_PROP_DIRECT;
-	if ((err = mcr_Device_set_bits(&mcr_absDev, UI_SET_PROPBIT, evbits, 2)))
-		return err;
-	for (i = 0; i <= ABS_MISC; i++) {
-		absbits[i] = i;
-	}
-
-	if ((err = mcr_Device_set_bits(&mcr_absDev, UI_SET_ABSBIT, absbits,
-								   ABS_MISC + 1))) {
-		return err;
-	}
-	return err;
 }
 
-int mcr_Device_initialize(struct mcr_context *context)
+int mcr_Device_initialize(struct mcr_context *ctx)
 {
-	int mtxErr = mtx_init(&_deviceLock, mtx_plain);
-	UNUSED(context);
-	if (mtxErr != thrd_success) {
-		mtxErr = mcr_thrd_errno(mtxErr);
-		mset_error_return(mtxErr);
-	}
-	mcr_String_init(&_uinputPath);
-	mcr_String_init(&_eventPath);
-	if (mcr_String_replace(&_uinputPath, MCR_STR(MCR_UINPUT_PATH)))
-		return mcr_err;
-	if (mcr_String_replace(&_eventPath, MCR_STR(MCR_EVENT_PATH)))
-		return mcr_err;
+	int err;
+
+	/* gen dev initial bits */
+	genDevRanges[0] = keyRange;
+	genDevRanges[1] = relRange;
+	genDevRanges[2] = mscRange;
+	genDevRanges[3] = sndRange;
+	genDevRanges[4] = pointerRange;
+	/* abs dev initial bits */
+	absDevRanges[0] = absKeyRange;
+	absDevRanges[1] = absRange;
+	absDevRanges[2] = pointerRange;
+	absDevRanges[3] = directRange;
+
 	/* ioctl is unpredictable for valgrind. The first ioctl will
 	 * be uninitialized, and others should not cause errors. */
-	if (genDevice_init())
-		return mcr_err;
-	if (absDevice_init())
-		return mcr_err;
-	if (!access(MCR_STR(MCR_UINPUT_PATH), W_OK | R_OK)) {
-		if (mcr_Device_enable_all(true))
-			return mcr_err;
+	genDevice_init(ctx);
+	absDevice_init(ctx);
+	if (!access(MCR_UINPUT_PATH, W_OK | R_OK)) {
+		if (mcr_Device_enable_all(ctx, true)) {
+			err = mcr_err;
+			mcr_Device_deinitialize(ctx);
+			error_set_return(err);
+		}
 	}
 	return 0;
 }
 
-int mcr_Device_deinitialize(struct mcr_context *context)
+int mcr_Device_deinitialize(struct mcr_context *ctx)
 {
-	UNUSED(context);
-	mcr_Device_deinit(&mcr_genDev);
-	mcr_Device_deinit(&mcr_absDev);
-	mcr_Array_deinit(&_uinputPath);
-	mcr_Array_deinit(&_eventPath);
-	mtx_destroy(&_deviceLock);
+	struct mcr_standard_platform *standardPt = ctx->standard.platform_pt;
+	int mtxErr = mtx_lock(&standardPt->device_lock);
+	mcr_Device_deinit(&standardPt->gen_dev);
+	mcr_Device_deinit(&standardPt->abs_dev);
+	if (mtxErr == thrd_success)
+		mtx_unlock(&standardPt->device_lock);
 	return 0;
 }

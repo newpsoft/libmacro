@@ -16,8 +16,8 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#ifndef MCR_STANDARD_LNX_NSTANDARD_H_
-#define MCR_STANDARD_LNX_NSTANDARD_H_
+#ifndef MCR_STANDARD_LINUX_P_STANDARD_H_
+#define MCR_STANDARD_LINUX_P_STANDARD_H_
 
 #include "mcr/standard/linux/p_device.h"
 
@@ -25,10 +25,26 @@
 extern "C" {
 #endif
 
-/* In order to inline we cannot privatize this. */
-extern MCR_API struct mcr_Array mcr_echoEvents;
-extern MCR_API struct mcr_Map mcr_keyToEcho[2];
-extern MCR_API mcr_SpacePosition mcr_cursor;
+struct mcr_standard_platform {
+	mcr_SpacePosition cursor;
+	struct {
+		/*! echo code index => input_event to send (EV_KEY) */
+		const struct input_event *echo_events;
+		size_t echo_event_count;
+	};
+	struct mcr_Device gen_dev;
+	struct mcr_Device abs_dev;
+	__s32 abs_resolution;
+	const char *uinput_path;
+	const char *event_path;
+	mtx_t device_lock;
+};
+
+/* Common array length for standard and intercept echo events */
+#define MCR_STANDARD_ECHO_EVENT_DEFAULT_COUNT 90
+extern MCR_API const struct input_event *const mcr_standard_echo_event_defaults;
+
+extern MCR_API void mcr_standard_set_echo_events(struct mcr_context *ctx, const struct input_event *echoEvents, size_t count);
 
 #ifdef __cplusplus
 }

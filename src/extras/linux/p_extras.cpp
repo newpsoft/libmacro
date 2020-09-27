@@ -19,9 +19,211 @@
 #include "mcr/extras/linux/p_extras.h"
 #include "mcr/extras/extras.h"
 
+#include <algorithm>
+#include <functional>
+#include <map>
+#include <vector>
+
+#define priv _private
+
 namespace mcr
 {
+class LibmacroPlatformPrivate
+{
+	friend class LibmacroPlatform;
+public:
+	struct key_element_less : std::binary_function<mcr_MapElement, mcr_MapElement, bool>
+	{
+		bool operator()(const mcr_MapElement &lhs, const mcr_MapElement &rhs) const
+		{
+			return lhs.first.integer < rhs.first.integer;
+		}
+	};
+
+	std::vector<input_event> echoKeys;
+	std::vector<mcr_MapElement> keyEchoMaps[2];
+	std::vector<std::string> grabs;
+	std::vector<const char *> grabPaths;
+};
 static void localAddKeys(Libmacro *ctx);
+
+LibmacroPlatform::LibmacroPlatform(Libmacro &context)
+	: _context(&context), priv(new LibmacroPlatformPrivate)
+{
+}
+
+LibmacroPlatform::LibmacroPlatform(const LibmacroPlatform &copytron)
+	: _context(copytron._context), priv(new LibmacroPlatformPrivate)
+{
+	*priv = *copytron.priv;
+}
+
+LibmacroPlatform::~LibmacroPlatform()
+{
+	delete priv;
+}
+
+LibmacroPlatform &LibmacroPlatform::operator=(const LibmacroPlatform &copytron)
+{
+	if (&copytron != this) {
+		*priv = *copytron.priv;
+		reset();
+	}
+	return *this;
+}
+
+size_t LibmacroPlatform::echo(const mcr_Key &val) const
+{
+	mcr_MapElement *element;
+	if (!valid(val.apply) || priv->keyEchoMaps[val.apply].empty())
+		return (size_t)~0;
+	auto &map = priv->keyEchoMaps[val.apply];
+	element = (mcr_MapElement *)bsearch(&val.key, &map.front(), map.size(), sizeof(mcr_MapElement), mcr_int_compare);
+	return element ? element->second.index : MCR_HIDECHO_ANY;
+}
+
+mcr_Key LibmacroPlatform::echoKey(size_t echo) const
+{
+	mcr_Key ret = { 0, MCR_SET };
+	if (echo >= priv->echoKeys.size())
+		return ret;
+	auto found = priv->echoKeys.begin() + echo;
+	ret.key = found->code;
+	ret.apply = found->value ? MCR_SET : MCR_UNSET;
+	return ret;
+}
+
+size_t LibmacroPlatform::setEcho(const mcr_Key &val, bool updateFlag)
+{
+	input_event insert;
+	mcr_MapElement insertKey;
+	size_t current = echo(val);
+	if (current != MCR_HIDECHO_ANY)
+		return current;
+	mcr_throwif(!valid(val.apply), EINVAL);
+
+	current = priv->echoKeys.size();
+	ZERO(insert);
+	insert.code = val.key;
+	insert.value = val.apply == MCR_SET ? 1 : 0;
+	priv->echoKeys.insert(priv->echoKeys.begin() + current, insert);
+
+	insertKey.first.integer = val.key;
+	insertKey.second.index = current;
+	auto &map = priv->keyEchoMaps[val.apply];
+	auto found = std::lower_bound(map.begin(), map.end(), insertKey, LibmacroPlatformPrivate::key_element_less());
+	if (found != map.end() && found->first.integer == val.key) {
+		found->second.index = current;
+	} else {
+		map.insert(found, insertKey);
+	}
+	if (updateFlag)
+		updateEchos();
+	return current;
+}
+
+size_t LibmacroPlatform::echoCount() const
+{
+	return priv->echoKeys.size();
+}
+
+void LibmacroPlatform::removeEcho(size_t code)
+{
+	mcr_throwif(code == (size_t)~0, EINVAL);
+	for (int i = 0; i < 2; i++) {
+		auto &map = priv->keyEchoMaps[i];
+		for (auto iter = map.rbegin(); iter != map.rend(); iter++) {
+			if (iter->second.index == code)
+				map.erase(iter.base());
+		}
+	}
+	if (code < priv->echoKeys.size())
+		priv->echoKeys.erase(priv->echoKeys.begin() + code);
+	updateEchos();
+}
+
+void LibmacroPlatform::updateEchos()
+{
+	input_event *events = priv->echoKeys.empty() ? nullptr : &priv->echoKeys.front();
+	mcr_standard_set_echo_events(&**_context, events, priv->echoKeys.size());
+	auto &map = priv->keyEchoMaps[MCR_SET];
+	mcr_intercept_set_key_echo_map(&**_context, map.empty() ? nullptr : &map.front(), map.size(), MCR_SET);
+	map = priv->keyEchoMaps[MCR_UNSET];
+	mcr_intercept_set_key_echo_map(&**_context, map.empty() ? nullptr : &map.front(), map.size(), MCR_UNSET);
+}
+
+size_t LibmacroPlatform::grabCount() const
+{
+	return priv->grabs.size();
+}
+
+void LibmacroPlatform::setGrabCount(size_t count, bool updateFlag)
+{
+	priv->grabs.resize(count);
+	priv->grabPaths.resize(count);
+	if (updateFlag)
+		updateGrabs();
+}
+
+String LibmacroPlatform::grab(size_t index) const
+{
+	mcr_throwif(index >= priv->grabs.size(), EINVAL);
+	return priv->grabs[index];
+}
+
+void LibmacroPlatform::setGrab(size_t index, const String &value, bool updateFlag)
+{
+	mcr_throwif(index >= priv->grabs.size(), EINVAL);
+	priv->grabs[index] = value;
+	priv->grabPaths[index] = priv->grabs[index].c_str();
+	if (updateFlag)
+		updateGrabs();
+}
+
+void LibmacroPlatform::updateGrabs()
+{
+	if (priv->grabPaths.size()) {
+		if (mcr_intercept_set_grabs(&**_context, &priv->grabPaths.front(), priv->grabPaths.size()))
+			throwError(MCR_LINE, mcr_read_err());
+	}
+	if (mcr_intercept_set_grabs(&**_context, nullptr, 0))
+		throwError(MCR_LINE, mcr_read_err());
+}
+
+void LibmacroPlatform::clear()
+{
+	mcr_standard_set_echo_events(&**_context, nullptr, 0);
+	mcr_intercept_set_key_echo_map(&**_context, nullptr, 0, MCR_SET);
+	mcr_intercept_set_key_echo_map(&**_context, nullptr, 0, MCR_UNSET);
+	priv->echoKeys.clear();
+	priv->keyEchoMaps[0].clear();
+	priv->keyEchoMaps[1].clear();
+}
+
+void LibmacroPlatform::initialize()
+{
+	size_t i;
+
+	priv->echoKeys.resize(MCR_STANDARD_ECHO_EVENT_DEFAULT_COUNT);
+	for (i = 0; i < MCR_STANDARD_ECHO_EVENT_DEFAULT_COUNT; i++) {
+		priv->echoKeys[i] = mcr_standard_echo_event_defaults[i];
+	}
+
+	priv->keyEchoMaps[0].resize(MCR_INTERCEPT_KEY_ECHO_DEFAULT_COUNT);
+	priv->keyEchoMaps[1].resize(MCR_INTERCEPT_KEY_ECHO_DEFAULT_COUNT);
+	for (i = 0; i < MCR_INTERCEPT_KEY_ECHO_DEFAULT_COUNT; i++) {
+		/* Map insert ordered, already ordered by default. */
+		priv->keyEchoMaps[0][i] = mcr_intercept_key_echo_defaults[0][i];
+		priv->keyEchoMaps[1][i] = mcr_intercept_key_echo_defaults[1][i];
+	}
+	reset();
+}
+
+void LibmacroPlatform::reset()
+{
+	updateEchos();
+	updateGrabs();
+}
 
 void Libmacro::initialize()
 {

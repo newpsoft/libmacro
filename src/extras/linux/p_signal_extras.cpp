@@ -17,7 +17,9 @@
 */
 
 #include "mcr/extras/linux/p_extras.h"
-#include "mcr/extras/extras.h"
+#include "mcr/libmacro.h"
+
+#include <vector>
 
 extern "C" {
 #include <sys/wait.h>
@@ -25,11 +27,11 @@ extern "C" {
 
 namespace mcr
 {
-void Command::send()
+void Command::send(mcr_Signal *)
 {
 	pid_t child, child2;
-	std::string f = file();
-	std::vector<std::string> args = this->args();
+	String f = file();
+	std::vector<std::string> args = this->args<std::vector<std::string>>();
 	/* file + all args + NULL ending */
 	size_t i, argsLen = args.size() + 2;
 	int err;
@@ -40,7 +42,7 @@ void Command::send()
 	}
 	mcr_err = 0;
 	strArgs = new char *[argsLen];
-	strArgs[0] = &f.front();
+	strArgs[0] = f.string();
 	for (i = 0; i < args.size(); i++) {
 		strArgs[i + 1] = &args[i].front();
 	}
@@ -56,7 +58,7 @@ void Command::send()
 		}
 	} else {
 		/* child pid = 0, this is the child */
-		if ((err = mcr_privilege_deactivate()))
+		if ((err = mcr_privileges_deactivate()))
 			_exit(err);
 		if ((child2 = fork()) == -1) {
 			mcr_errno(EINTR);

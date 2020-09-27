@@ -34,7 +34,7 @@ jobs:
       run: |
         git fetch origin master
         cmake -B bin -DBUILD_DOC=OFF -DBUILD_PACKAGE=OFF -DBUILD_SHARED_LIBS=ON -DBUILD_SIGNED=OFF -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release .
-        cmake --build bin --target tst_Macropus
+		cmake --build bin --target tst_libmacro
 
     - name: tst_libmacro
       run: bin/tst_libmacro

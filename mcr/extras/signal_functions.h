@@ -25,18 +25,21 @@
 
 #include <QtCore>
 
-#include "mcr/extras/wrap_signal.h"
 #include "mcr/extras/iserializer.h"
-#include "mcr/extras/command.h"
-#include "mcr/extras/interrupt.h"
-#include "mcr/extras/string_key.h"
+#include "mcr/extras/signals/command.h"
+#include "mcr/extras/signals/interrupt.h"
+#include "mcr/extras/signals/string_key.h"
+#include "mcr/extras/references/signal_builder.h"
 
 namespace mcr
 {
+class SerSignal;
+class SignalFunctionsPrivate;
 /*! QML: Acces signal information.  C++ serialize. */
 class MCR_API SignalFunctions : public QObject
 {
 	Q_OBJECT
+	friend class SignalFunctionsPrivate;
 public:
 	explicit SignalFunctions(QObject *parent = nullptr,
 							 Libmacro *libmacroPt = nullptr);
@@ -44,9 +47,9 @@ public:
 	virtual ~SignalFunctions() override;
 	SignalFunctions &operator =(const SignalFunctions &) = delete;
 
-	Libmacro *context() const
+	Libmacro &context() const
 	{
-		return _libmacroPt;
+		return *_context;
 	}
 	/* ID of ISignal name */
 	Q_INVOKABLE QVariant id(const QString &name) const;
@@ -69,58 +72,45 @@ public:
 	Q_INVOKABLE QStringList keyNames() const;
 	Q_INVOKABLE unsigned int keyMod(int code) const;
 
-	ISerializer *serializer(size_t id);
-	ISerializer *serializer(const QVariant &id)
+	SerSignal *serializer(size_t id);
+	SerSignal *serializer(const QVariant &id)
 	{
 		return serializer(id.value<size_t>());
 	}
-	void setSerializer(size_t id, ISerializer::get serFnc);
+	void setSerializer(size_t id, SerSignal *(*serFnc)());
 private:
-	Libmacro *_libmacroPt;
-	/* std::vector<ISerializer::get> */
-	void *_serializers;
-	inline std::vector<ISerializer::get> &serializers() const
-	{
-		return *static_cast<std::vector<ISerializer::get> *>(_serializers);
-	}
-
-	inline void ensureSerializer(size_t id)
-	{
-		dthrow(id == static_cast<size_t>(-1), EINVAL);
-		auto &ser = serializers();
-		if (id >= ser.size())
-			ser.resize(id + 1, nullptr);
-	}
+	Libmacro *_context;
+	/* non-exportable */
+	SignalFunctionsPrivate *_private;
 };
 
-class MCR_API SerSignal : public ISerializer, public SignalRef
+class SerSignalPrivate;
+class MCR_API SerSignal : public ISerializer, public SignalBuilder
 {
+	friend class SerSignalPrivate;
 public:
-	/// \todo Change to SignalRef?
+	/*! \brief Get a serializer object to get/set all values of another object
+	 *
+	 *  The serializer object is created with new and must be deleted manually
+	 */
+	typedef SerSignal *(*get_serializer)();
+	//! \todo Change to SignalBuilder?
 	typedef QVariant (*get)(const SerSignal &container);
 	typedef void (*set)(SerSignal &container, const QVariant &value);
 
 	SerSignal(size_t reserveKeys = 0, mcr_ISignal *valueInterface = nullptr);
 	SerSignal(const SerSignal &) = default;
 	virtual ~SerSignal() override;
-	SerSignal &operator =(const SerSignal &) = default;
+	SerSignal &operator =(const SerSignal &) = delete;
 
-	virtual void *object() const override
-	{
-		return signal();
-	}
-	virtual void setObject(void *val) override
-	{
-		setSignal(static_cast<mcr_Signal *>(val));
-	}
 	virtual size_t keyCount(bool canonical) const override;
-	virtual QString *keyData(bool canonical) const override;
+	virtual QString *keysArray(bool canonical) const override;
 	virtual QVariant value(const QString &name) const override;
 	virtual void setValue(const QString &name, const QVariant &val) override;
 
 	virtual inline void setValueInterface(mcr_ISignal *isigPt)
 	{
-		dthrow(!isigPt, EINVAL);
+		mcr_throwif(!isigPt, EFAULT);
 		_valueInterface = isigPt;
 	}
 	/* Will modify keys, getMap, and setMap */
@@ -134,27 +124,9 @@ public:
 		setMapsCanonical(key, fnGet, fnSet);
 	}
 private:
-	void *_keys;
-	void *_keysCanonical;
-	void *_getMap;
-	void *_setMap;
 	mcr_ISignal *_valueInterface;
-	inline std::vector<QString> &keysRef() const
-	{
-		return *static_cast<std::vector<QString> *>(_keys);
-	}
-	inline std::vector<QString> &keysCanonicalRef() const
-	{
-		return *static_cast<std::vector<QString> *>(_keysCanonical);
-	}
-	inline std::map<QString, get> &getMapRef() const
-	{
-		return *static_cast<std::map<QString, get> *>(_getMap);
-	}
-	inline std::map<QString, set> &setMapRef() const
-	{
-		return *static_cast<std::map<QString, set> *>(_setMap);
-	}
+	/* Not exportable */
+	SerSignalPrivate *_private;
 };
 
 class MCR_API SerHidEcho : public SerSignal
@@ -164,7 +136,8 @@ public:
 
 	static QVariant echo(const SerSignal &container)
 	{
-		return QVariant::fromValue<size_t>(container.isEmpty() ? 0 : container.data<mcr_HidEcho>()->echo);
+		return QVariant::fromValue<size_t>(container.empty() ? 0 :
+										   container.data<mcr_HidEcho>()->echo);
 	}
 	static void setEcho(SerSignal &container, const QVariant &val)
 	{
@@ -181,7 +154,7 @@ public:
 
 	static QVariant key(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Key>()->key;
+		return container.empty() ? 0 : container.data<mcr_Key>()->key;
 	}
 	static void setKey(SerSignal &container, const QVariant &val)
 	{
@@ -189,7 +162,7 @@ public:
 	}
 	static QVariant applyType(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Key>()->apply;
+		return container.empty() ? 0 : container.data<mcr_Key>()->apply;
 	}
 	static void setApplyType(SerSignal &container, const QVariant &val)
 	{
@@ -207,7 +180,7 @@ public:
 
 	static QVariant modifiers(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Modifier>()->modifiers;
+		return container.empty() ? 0 : container.data<mcr_Modifier>()->modifiers;
 	}
 	static void setModifiers(SerSignal &container, const QVariant &val)
 	{
@@ -215,7 +188,7 @@ public:
 	}
 	static QVariant applyType(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Modifier>()->apply;
+		return container.empty() ? 0 : container.data<mcr_Modifier>()->apply;
 	}
 	static void setApplyType(SerSignal &container, const QVariant &val)
 	{
@@ -231,36 +204,36 @@ public:
 
 	static QVariant justify(const SerSignal &container)
 	{
-		return container.isEmpty() ? false :
-			   container.data<mcr_MoveCursor>()->is_justify;
+		return container.empty() ? false :
+			   container.data<mcr_MoveCursor>()->justify_flag;
 	}
 	static void setJustify(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_MoveCursor>()->is_justify = val.toBool();
+		container.mkdata().data<mcr_MoveCursor>()->justify_flag = val.toBool();
 	}
 	static QVariant x(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_MoveCursor>()->pos[MCR_X];
+		return container.empty() ? 0 : container.data<mcr_MoveCursor>()->position[MCR_X];
 	}
 	static void setX(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_MoveCursor>()->pos[MCR_X] = val.toLongLong();
+		container.mkdata().data<mcr_MoveCursor>()->position[MCR_X] = val.toLongLong();
 	}
 	static QVariant y(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_MoveCursor>()->pos[MCR_Y];
+		return container.empty() ? 0 : container.data<mcr_MoveCursor>()->position[MCR_Y];
 	}
 	static void setY(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_MoveCursor>()->pos[MCR_Y] = val.toLongLong();
+		container.mkdata().data<mcr_MoveCursor>()->position[MCR_Y] = val.toLongLong();
 	}
 	static QVariant z(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_MoveCursor>()->pos[MCR_Z];
+		return container.empty() ? 0 : container.data<mcr_MoveCursor>()->position[MCR_Z];
 	}
 	static void setZ(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_MoveCursor>()->pos[MCR_Z] = val.toLongLong();
+		container.mkdata().data<mcr_MoveCursor>()->position[MCR_Z] = val.toLongLong();
 	}
 };
 
@@ -271,19 +244,19 @@ public:
 
 	static QVariant sec(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_NoOp>()->sec;
+		return container.empty() ? 0 : container.data<mcr_NoOp>()->seconds;
 	}
 	static void setSec(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_NoOp>()->sec = val.toInt();
+		container.mkdata().data<mcr_NoOp>()->seconds = val.toInt();
 	}
 	static QVariant msec(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_NoOp>()->msec;
+		return container.empty() ? 0 : container.data<mcr_NoOp>()->milliseconds;
 	}
 	static void setMsec(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_NoOp>()->msec = val.toInt();
+		container.mkdata().data<mcr_NoOp>()->milliseconds = val.toInt();
 	}
 };
 
@@ -294,27 +267,27 @@ public:
 
 	static QVariant x(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Scroll>()->dm[MCR_X];
+		return container.empty() ? 0 : container.data<mcr_Scroll>()->dimensions[MCR_X];
 	}
 	static void setX(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_Scroll>()->dm[MCR_X] = val.toLongLong();
+		container.mkdata().data<mcr_Scroll>()->dimensions[MCR_X] = val.toLongLong();
 	}
 	static QVariant y(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Scroll>()->dm[MCR_Y];
+		return container.empty() ? 0 : container.data<mcr_Scroll>()->dimensions[MCR_Y];
 	}
 	static void setY(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_Scroll>()->dm[MCR_Y] = val.toLongLong();
+		container.mkdata().data<mcr_Scroll>()->dimensions[MCR_Y] = val.toLongLong();
 	}
 	static QVariant z(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<mcr_Scroll>()->dm[MCR_Z];
+		return container.empty() ? 0 : container.data<mcr_Scroll>()->dimensions[MCR_Z];
 	}
 	static void setZ(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<mcr_Scroll>()->dm[MCR_Z] = val.toLongLong();
+		container.mkdata().data<mcr_Scroll>()->dimensions[MCR_Z] = val.toLongLong();
 	}
 };
 
@@ -325,21 +298,21 @@ public:
 
 	static QVariant cryptic(const SerSignal &container)
 	{
-		return container.isEmpty() ? false : container.data<Command>()->cryptic();
+		return container.empty() ? false : container.data<ICommand>()->cryptic();
 	}
 	static void setCryptic(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<Command>()->setCryptic(val.toBool());
+		container.mkdata().data<ICommand>()->setCryptic(val.toBool());
 	}
 	static QVariant file(const SerSignal &container)
 	{
-		return QString::fromStdString(container.isEmpty() ? "" :
-									  container.data<Command>()->file());
+		return QString::fromStdString(container.empty() ? "" :
+									  *container.data<ICommand>()->file());
 	}
 	static void setFile(SerSignal &container, const QVariant &val)
 	{
 		QString f = val.toString();
-		container.mkdata().data<Command>()->setFile(f.toUtf8().constData());
+		container.mkdata().data<ICommand>()->setFile(f.toUtf8().constData());
 	}
 	static QVariant args(const SerSignal &container);
 	static void setArgs(SerSignal &container, const QVariant &val);
@@ -352,20 +325,20 @@ public:
 
 	static QVariant type(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<Interrupt>()->type;
+		return container.empty() ? 0 : container.data<IInterrupt>()->type();
 	}
 	static void setType(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<Interrupt>()->type = val.toInt();
+		container.mkdata().data<IInterrupt>()->setType(val.toInt());
 	}
 	static QVariant target(const SerSignal &container)
 	{
-		return container.isEmpty() ? "" : container.data<Interrupt>()->target();
+		return container.empty() ? "" : container.data<IInterrupt>()->target();
 	}
 	static void setTarget(SerSignal &container, const QVariant &val)
 	{
 		QString t = val.toString();
-		container.mkdata().data<Interrupt>()->setTarget(t.toUtf8().constData());
+		container.mkdata().data<IInterrupt>()->setTarget(t.toUtf8().constData());
 	}
 };
 
@@ -376,37 +349,37 @@ public:
 
 	static QVariant cryptic(const SerSignal &container)
 	{
-		return container.isEmpty() ? false : container.data<StringKey>()->cryptic();
+		return container.empty() ? false : container.data<IStringKey>()->cryptic();
 	}
 	static void setCryptic(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<StringKey>()->setCryptic(val.toBool());
+		container.mkdata().data<IStringKey>()->setCryptic(val.toBool());
 	}
 	static QVariant sec(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<StringKey>()->interval.sec;
+		return container.empty() ? 0 : container.data<IStringKey>()->seconds();
 	}
 	static void setSec(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<StringKey>()->interval.sec = val.toInt();
+		container.mkdata().data<IStringKey>()->setSeconds(val.toInt());
 	}
 	static QVariant msec(const SerSignal &container)
 	{
-		return container.isEmpty() ? 0 : container.data<StringKey>()->interval.msec;
+		return container.empty() ? 0 : container.data<IStringKey>()->milliseconds();
 	}
 	static void setMsec(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<StringKey>()->interval.msec = val.toInt();
+		container.mkdata().data<IStringKey>()->setMilliseconds(val.toInt());
 	}
 	static QVariant text(const SerSignal &container)
 	{
-		return QString::fromStdString(container.isEmpty() ? "" :
-									  container.data<StringKey>()->text());
+		return QString::fromStdString(container.empty() ? "" :
+									  *container.data<IStringKey>()->text());
 	}
 	static void setText(SerSignal &container, const QVariant &val)
 	{
 		QString f = val.toString();
-		container.mkdata().data<StringKey>()->setText(f.toUtf8().constData());
+		container.mkdata().data<IStringKey>()->setText(f.toUtf8().constData());
 	}
 };
 }

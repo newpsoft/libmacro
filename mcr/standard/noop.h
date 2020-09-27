@@ -23,7 +23,7 @@
 #ifndef MCR_STANDARD_NOOP_H_
 #define MCR_STANDARD_NOOP_H_
 
-#include "mcr/standard/def.h"
+#include "mcr/base/base.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,31 +32,26 @@ extern "C" {
 /*! Pause execution in seconds and milliseconds. */
 struct mcr_NoOp {
 	/*! Seconds */
-	int sec;
+	int seconds;
 	/*! Milliseconds */
-	int msec;
+	int milliseconds;
 };
 
-/*! Set both seconds and milliseconds. */
-MCR_API void mcr_NoOp_set_all(struct mcr_NoOp *noopPt, int sec, int msec);
 /*! \pre Signal has data member \ref mcr_NoOp
  *  \brief Pause execution in seconds and milliseconds.
  *
  *  \return \ref reterr
  */
-MCR_API int mcr_NoOp_send(struct mcr_Signal *sigPt);
+MCR_API int mcr_NoOp_send(struct mcr_Signal *signalPt);
 /*! \ref mcr_NoOp_send */
-MCR_API int mcr_NoOp_send_data(struct mcr_NoOp *dataPt);
+MCR_API void mcr_NoOp_send_member(struct mcr_NoOp *dataPt);
 /* Default init, deinit, copy, and compare */
 
 /*! Signal interface of \ref mcr_NoOp */
 MCR_API struct mcr_ISignal *mcr_iNoOp(struct mcr_context *ctx);
-/*! Signal data casted \ref mcr_NoOp * */
+/*! Signal data cast \ref mcr_NoOp * */
 #define mcr_NoOp_data(sigPt) \
-mcr_castpt(struct mcr_NoOp, mcr_Instance_data(sigPt))
-/*! Signal data casted \ref mcr_NoOp * */
-#define MCR_NOOP_DATA(sig) \
-mcr_castpt(struct mcr_NoOp, (sig).instance.data.data)
+mcr_castpt(struct mcr_NoOp, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }

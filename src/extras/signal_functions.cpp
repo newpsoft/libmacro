@@ -18,38 +18,59 @@
 
 #include "mcr/extras/signal_functions.h"
 
+#include <map>
+#include <set>
+#include <vector>
+
 #include "mcr/libmacro.h"
 
-#include <set>
+#define priv _private
 
 namespace mcr
 {
+class SignalFunctionsPrivate
+{
+	friend class SignalFunctions;
+public:
+	std::vector<SerSignal::get_serializer> serializers;
+};
+
+class SerSignalPrivate
+{
+	friend class SerSignal;
+public:
+	std::vector<QString> keys;
+	std::vector<QString> keysCanonical;
+	std::map<QString, SerSignal::get> getMap;
+	std::map<QString, SerSignal::set> setMap;
+};
+
 SignalFunctions::SignalFunctions(QObject *parent, Libmacro *libmacroPt)
-	: QObject(parent), _libmacroPt(libmacroPt ? libmacroPt : Libmacro::instance()),
-	  _serializers(new std::vector<ISerializer::get>)
+	: QObject(parent), _context(Libmacro::instance(libmacroPt)),
+	  priv(new SignalFunctionsPrivate)
 {
 	size_t i;
-	Libmacro *ctx = context();
+	Libmacro &ctx = context();
 	mcr_ISignal *isigs[] = {
-		ctx->iHidEcho(), ctx->iKey(),
-		ctx->iModifier(), ctx->iMoveCursor(),
-		ctx->iNoOp(), ctx->iScroll(),
-		ctx->iCommand().ptr(), ctx->iStringKey().ptr(),
-		ctx->iInterrupt().ptr()
+		&ctx.iHidEcho, &ctx.iKey,
+		&ctx.iModifier, &ctx.iMoveCursor,
+		&ctx.iNoOp, &ctx.iScroll,
+		&*ctx.iCommand, &*ctx.iStringKey,
+		&*ctx.iInterrupt
 	};
-	ISerializer::get fncs[] = {
-		[]() -> ISerializer *{ return new SerHidEcho(); },
-		[]() -> ISerializer *{ return new SerKey(); },
-		[]() -> ISerializer *{ return new SerModifier(); },
-		[]() -> ISerializer *{ return new SerMoveCursor(); },
-		[]() -> ISerializer *{ return new SerNoOp(); },
-		[]() -> ISerializer *{ return new SerScroll(); },
-		[]() -> ISerializer *{ return new SerCommand(); },
-		[]() -> ISerializer *{ return new SerStringKey(); },
-		[]() -> ISerializer *{ return new SerInterrupt(); }
+	SerSignal::get_serializer fncs[] = {
+		[]() -> SerSignal *{ return new SerHidEcho(); },
+		[]() -> SerSignal *{ return new SerKey(); },
+		[]() -> SerSignal *{ return new SerModifier(); },
+		[]() -> SerSignal *{ return new SerMoveCursor(); },
+		[]() -> SerSignal *{ return new SerNoOp(); },
+		[]() -> SerSignal *{ return new SerScroll(); },
+		[]() -> SerSignal *{ return new SerCommand(); },
+		[]() -> SerSignal *{ return new SerStringKey(); },
+		[]() -> SerSignal *{ return new SerInterrupt(); }
 	};
 	i = mcr_arrlen(fncs);
-	serializers().resize(i, nullptr);
+	priv->serializers.resize(i, nullptr);
 	while (i--) {
 		setSerializer(isigs[i]->interface.id, fncs[i]);
 	}
@@ -57,159 +78,146 @@ SignalFunctions::SignalFunctions(QObject *parent, Libmacro *libmacroPt)
 
 SignalFunctions::~SignalFunctions()
 {
-	delete &serializers();
+	delete priv;
 }
 
-ISerializer *SignalFunctions::serializer(size_t id)
+SerSignal *SignalFunctions::serializer(size_t id)
 {
-	auto &ser = serializers();
+	auto &ser = priv->serializers;
 	if (id < static_cast<size_t>(ser.size())) {
-		ISerializer::get fncPt = ser[id];
+		SerSignal::get_serializer fncPt = ser[id];
 		if (fncPt)
 			return fncPt();
 	}
 	return nullptr;
 }
 
-void SignalFunctions::setSerializer(size_t id, ISerializer::get serFnc)
+void SignalFunctions::setSerializer(size_t id, SerSignal *(*serFnc)())
 {
-	auto &ser = serializers();
-	if (id == static_cast<size_t>(-1))
+	auto &ser = priv->serializers;
+	if (id == static_cast<size_t>(~0))
 		return;
-	ensureSerializer(id);
+	if (id >= ser.size())
+		ser.resize(id + 1, nullptr);
 	/* Since we cannot notify statically, errors will crash */
 	ser[id] = serFnc;
 }
 
 QVariant SignalFunctions::id(const QString &name) const
 {
-	mcr_ISignal *isigPt = static_cast<mcr_ISignal *>(mcr_reg_from_name(
-							  mcr_ISignal_reg(
-								  context()->ptr()),
-							  name.toUtf8().constData()));
-	return QVariant::fromValue<size_t>(mcr_iid(isigPt));
+	mcr_ISignal *isigPt = mcr_ISignal_from_name(&*context(), name.toUtf8().constData());
+	return QVariant::fromValue<size_t>(mcr_Interface_id(&isigPt->interface));
 }
 
 QString SignalFunctions::name(const QVariant &id) const
 {
-	return mcr_reg_name(mcr_ISignal_reg(context()->ptr()), id.value<size_t>());
+	return mcr_IRegistry_id_name(mcr_ISignal_registry(&*context()),
+								 id.value<size_t>());
 }
 
 int SignalFunctions::modifierCount() const
 {
-	return static_cast<int>(mcr_ModFlags_count(context()->ptr()));
+	return static_cast<int>(context().serial.modifiersCount());
 }
 
 unsigned int SignalFunctions::modifier(const QString &name) const
 {
-	return mcr_ModFlags_modifier(context()->ptr(), name.toUtf8().constData());
+	return context().serial.modifiers(name.toUtf8().constData());
 }
 
 QString SignalFunctions::modifierName(unsigned int mod) const
 {
 	if (mod == static_cast<unsigned int>(-1))
 		return "All";
-	return mcr_ModFlags_name(context()->ptr(), mod);
+	return context().serial.modifiersName(mod);
 }
 
 QStringList SignalFunctions::modifierNames() const
 {
 	QStringList ret;
-	mcr_context *ctx = context()->ptr();
-	size_t count = mcr_ModFlags_count(ctx);
-	for (unsigned int i = 0, flag = 1; i < count; i++, flag <<= 1) {
-		ret << mcr_ModFlags_name(ctx, flag);
+	size_t max = context().serial.modifiersMax();
+	for (unsigned int i = 1; i <= max; i <<= 1) {
+		ret << context().serial.modifiersName(i);
 	}
 	return ret;
 }
 
 int SignalFunctions::echoCount() const
 {
-	return static_cast<int>(mcr_HidEcho_count(context()->ptr()));
+	return static_cast<int>(mcr_HidEcho_count(&*context()));
 }
 
 int SignalFunctions::echo(const QString &name) const
 {
-	return static_cast<int>(mcr_HidEcho_name_echo(context()->ptr(),
-							name.toUtf8().constData()));
+	return static_cast<int>(context().serial.echo(name.toUtf8().constData()));
 }
 
 QString SignalFunctions::echoName(int echo) const
 {
-	return mcr_HidEcho_name(context()->ptr(), static_cast<size_t>(echo));
+	return context().serial.echoName(static_cast<size_t>(echo));
 }
 
 QStringList SignalFunctions::echoNames() const
 {
 	QStringList ret;
-	mcr_context *ctx = context()->ptr();
-	size_t count = mcr_HidEcho_count(ctx);
+	size_t count = mcr_HidEcho_count(&*context());
 	for (unsigned int i = 0; i < count; i++) {
-		ret << mcr_HidEcho_name(ctx, i);
+		ret << context().serial.echoName(i);
 	}
 	return ret;
 }
 
 int SignalFunctions::keyCount() const
 {
-	return static_cast<int>(mcr_Key_count(context()->ptr()));
+	return static_cast<int>(context().serial.keyCount());
 }
 
 int SignalFunctions::key(const QString &name) const
 {
-	return static_cast<int>(mcr_Key_name_key(context()->ptr(),
-							name.toUtf8().constData()));
+	return context().serial.key(name.toUtf8().constData());
 }
 
 QString SignalFunctions::keyName(int code) const
 {
-	return mcr_Key_name(context()->ptr(), code);
+	return context().serial.keyName(code);
 }
 
 QStringList SignalFunctions::keyNames() const
 {
 	QStringList ret;
-	mcr_context *ctx = context()->ptr();
-	size_t count = mcr_Key_count(ctx);
-	for (int i = 0; i < static_cast<int>(count); i++) {
-		ret << mcr_Key_name(ctx, i);
+	int count = keyCount();
+	for (int i = 0; i < count; i++) {
+		ret << context().serial.keyName(i);
 	}
 	return ret;
 }
 
 unsigned int SignalFunctions::keyMod(int code) const
 {
-	return mcr_Key_modifier(context()->ptr(), code);
+	return mcr_key_modifier(&*context(), code);
 }
 
 SerSignal::SerSignal(size_t reserveKeys, mcr_ISignal *valueInterface) :
-	_keys(new std::vector<QString>),
-	_keysCanonical(new std::vector<QString>),
-	_getMap(new std::map<QString, get>),
-	_setMap(new std::map<QString, set>),
-	_valueInterface(valueInterface)
+	_valueInterface(valueInterface), priv(new SerSignalPrivate)
 {
-	keysRef().reserve(reserveKeys);
-	keysCanonicalRef().reserve(reserveKeys);
+	priv->keys.reserve(reserveKeys);
+	priv->keysCanonical.reserve(reserveKeys);
 }
 
 SerSignal::~SerSignal()
 {
-	delete &keysRef();
-	delete &keysCanonicalRef();
-	delete &getMapRef();
-	delete &setMapRef();
+	delete priv;
 }
 
 size_t SerSignal::keyCount(bool canonical) const
 {
-	auto &keys = canonical ? keysCanonicalRef() : keysRef();
+	auto &keys = canonical ? priv->keysCanonical : priv->keys;
 	return keys.size();
 }
 
-QString *SerSignal::keyData(bool canonical) const
+QString *SerSignal::keysArray(bool canonical) const
 {
-	auto &keys = canonical ? keysCanonicalRef() : keysRef();
+	auto &keys = canonical ? priv->keysCanonical : priv->keys;
 	if (keys.empty())
 		return nullptr;
 	return &keys.front();
@@ -217,7 +225,7 @@ QString *SerSignal::keyData(bool canonical) const
 
 QVariant SerSignal::value(const QString &name) const
 {
-	auto &getMap = getMapRef();
+	auto &getMap = priv->getMap;
 	auto iter = getMap.find(name);
 	if (iter == getMap.end() || !iter->second)
 		return QVariant();
@@ -226,11 +234,11 @@ QVariant SerSignal::value(const QString &name) const
 
 void SerSignal::setValue(const QString &name, const QVariant &val)
 {
-	auto &setMap = setMapRef();
+	auto &setMap = priv->setMap;
 	auto iter = setMap.find(name);
 	if (iter == setMap.end() || !iter->second)
 		return;
-	dthrow(!_valueInterface, EFAULT);
+	mcr_throwif(!_valueInterface, EFAULT);
 	if (isignal() != _valueInterface)
 		setISignal(_valueInterface);
 	mkdata();
@@ -239,41 +247,41 @@ void SerSignal::setValue(const QString &name, const QVariant &val)
 
 void SerSignal::setMaps(const QString &key, get fnGet, set fnSet)
 {
-	keysRef().push_back(key);
-	getMapRef()[key] = fnGet;
-	setMapRef()[key] = fnSet;
+	priv->keys.push_back(key);
+	priv->getMap[key] = fnGet;
+	priv->setMap[key] = fnSet;
 }
 
 void SerSignal::setMapsCanonical(const QString &key, get fnGet, set fnSet)
 {
-	keysCanonicalRef().push_back(key);
-	getMapRef()[key] = fnGet;
-	setMapRef()[key] = fnSet;
+	priv->keysCanonical.push_back(key);
+	priv->getMap[key] = fnGet;
+	priv->setMap[key] = fnSet;
 }
 
 SerHidEcho::SerHidEcho() : SerSignal(1)
 {
-	setValueInterface(context()->iHidEcho());
+	setValueInterface(&context().iHidEcho);
 	setMaps("echo", &echo, &setEcho);
 	setMapsCanonical("echoName", &echoName, &setEchoName);
 }
 
 QVariant SerHidEcho::echoName(const SerSignal &container)
 {
-	size_t e = container.isEmpty() ? 0 : container.data<mcr_HidEcho>()->echo;
-	return mcr_HidEcho_name(container.context()->ptr(), e);
+	size_t e = container.empty() ? 0 : container.data<mcr_HidEcho>()->echo;
+	return container.context().serial.echoName(e);
 }
 
 void SerHidEcho::setEchoName(SerSignal &container, const QVariant &val)
 {
 	QString n = val.toString();
-	container.mkdata().data<mcr_HidEcho>()->echo = mcr_HidEcho_name_echo(
-				container.context()->ptr(), n.toUtf8().constData());
+	container.mkdata().data<mcr_HidEcho>()->echo = container.context().serial.echo(
+				n.toUtf8().constData());
 }
 
 SerKey::SerKey() : SerSignal(2)
 {
-	setValueInterface(context()->iKey());
+	setValueInterface(&context().iKey);
 	setMaps("key", &key, &setKey);
 	setMapsCanonical("keyName", &keyName, &setKeyName);
 	setMapsGeneric("applyType", &applyType, &setApplyType);
@@ -281,27 +289,27 @@ SerKey::SerKey() : SerSignal(2)
 
 QVariant SerKey::keyName(const SerSignal &container)
 {
-	int e = container.isEmpty() ? 0 : container.data<mcr_Key>()->key;
-	return mcr_Key_name(container.context()->ptr(), e);
+	int e = container.empty() ? 0 : container.data<mcr_Key>()->key;
+	return container.context().serial.keyName(e);
 }
 
 void SerKey::setKeyName(SerSignal &container, const QVariant &val)
 {
 	QString n = val.toString();
-	container.mkdata().data<mcr_Key>()->key = mcr_Key_name_key(
-				container.context()->ptr(), n.toUtf8().constData());
+	container.mkdata().data<mcr_Key>()->key = container.context().serial.key(
+				n.toUtf8().constData());
 }
 
 SerModifier::SerModifier() : SerSignal(2)
 {
-	setValueInterface(context()->iModifier());
+	setValueInterface(&context().iModifier);
 	setMapsGeneric("modifiers", &modifiers, &setModifiers);
 	setMapsGeneric("applyType", &applyType, &setApplyType);
 }
 
 SerMoveCursor::SerMoveCursor() : SerSignal(4)
 {
-	setValueInterface(context()->iMoveCursor());
+	setValueInterface(&context().iMoveCursor);
 	setMapsGeneric("justify", &justify, &setJustify);
 	setMapsGeneric("x", &x, &setX);
 	setMapsGeneric("y", &y, &setY);
@@ -310,14 +318,14 @@ SerMoveCursor::SerMoveCursor() : SerSignal(4)
 
 SerNoOp::SerNoOp() : SerSignal(2)
 {
-	setValueInterface(context()->iNoOp());
+	setValueInterface(&context().iNoOp);
 	setMapsGeneric("sec", &sec, &setSec);
 	setMapsGeneric("msec", &msec, &setMsec);
 }
 
 SerScroll::SerScroll() : SerSignal(3)
 {
-	setValueInterface(context()->iScroll());
+	setValueInterface(&context().iScroll);
 	setMapsGeneric("x", &x, &setX);
 	setMapsGeneric("y", &y, &setY);
 	setMapsGeneric("z", &z, &setZ);
@@ -325,7 +333,7 @@ SerScroll::SerScroll() : SerSignal(3)
 
 SerCommand::SerCommand() : SerSignal(3)
 {
-	setValueInterface(context()->iCommand().ptr());
+	setValueInterface(&*context().iCommand);
 	setMapsGeneric("cryptic", &cryptic, &setCryptic);
 	setMapsGeneric("file", &file, &setFile);
 	setMapsGeneric("args", &args, &setArgs);
@@ -334,11 +342,12 @@ SerCommand::SerCommand() : SerSignal(3)
 QVariant SerCommand::args(const SerSignal &container)
 {
 	QStringList ret;
-	std::vector<std::string> list;
-	if (!container.isEmpty()) {
-		list = container.data<Command>()->args();
-		for (auto &iter: list) {
-			ret << QString::fromStdString(iter);
+	size_t count;
+	auto *cmd = container.data<ICommand>();
+	if (!container.empty()) {
+		count = cmd->argCount();
+		for (size_t i = 0; i < count; i++) {
+			ret << *cmd->arg(i);
 		}
 	}
 	return ret;
@@ -346,26 +355,24 @@ QVariant SerCommand::args(const SerSignal &container)
 
 void SerCommand::setArgs(SerSignal &container, const QVariant &val)
 {
-	std::vector<std::string> argsMem;
 	QStringList list = val.toStringList();
-	auto pt = container.mkdata().data<Command>();
-	argsMem.reserve(static_cast<size_t>(list.size()));
-	for (auto &s: list) {
-		argsMem.push_back(s.toStdString());
+	auto *pt = container.mkdata().data<ICommand>();
+	pt->setArgCount(list.size());
+	for (size_t i = 0; i < (size_t)list.size(); i++) {
+		pt->setArg(i, list[(int)i].toUtf8().data());
 	}
-	pt->setArgs(argsMem);
 }
 
 SerInterrupt::SerInterrupt() : SerSignal(2)
 {
-	setValueInterface(context()->iInterrupt().ptr());
+	setValueInterface(&*context().iInterrupt);
 	setMapsGeneric("type", &type, &setType);
 	setMapsGeneric("target", &target, &setTarget);
 }
 
 SerStringKey::SerStringKey() : SerSignal(4)
 {
-	setValueInterface(context()->iStringKey().ptr());
+	setValueInterface(&*context().iStringKey);
 	setMapsGeneric("cryptic", &cryptic, &setCryptic);
 	setMapsGeneric("sec", &sec, &setSec);
 	setMapsGeneric("msec", &msec, &setMsec);

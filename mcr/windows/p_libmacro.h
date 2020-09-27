@@ -16,4 +16,5 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#include "mcr/windows/p_defines.h"
 #include "mcr/intercept/windows/p_intercept.h"

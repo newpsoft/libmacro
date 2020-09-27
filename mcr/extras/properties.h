@@ -24,7 +24,7 @@
 #ifndef MCR_EXTRAS_PROPERTIES_H_
 #define MCR_EXTRAS_PROPERTIES_H_
 
-#include "mcr/extras/def.h"
+#include "mcr/extras/util/string.h"
 
 namespace mcr
 {
@@ -32,31 +32,23 @@ namespace mcr
 class MCR_API IOnPropertyChanged
 {
 public:
-	IOnPropertyChanged() = default;
-	IOnPropertyChanged(const IOnPropertyChanged &) = default;
-	virtual ~IOnPropertyChanged() {}
-	IOnPropertyChanged &operator =(const IOnPropertyChanged &) = default;
+	MCR_DECL_INTERFACE(IOnPropertyChanged)
+
 	virtual void onPropertyChanged(const char *propertyName) = 0;
-	inline void onPropertyChanged(const std::string &propertyName)
-	{
-		onPropertyChanged(propertyName.c_str());
-	}
 };
 
 /*! Object which has string properties to manage */
 class MCR_API IProperties
 {
 public:
-	IProperties() = default;
-	IProperties(const IProperties &) = default;
-	virtual ~IProperties() {}
-	IProperties &operator =(const IProperties &) = default;
+	MCR_DECL_INTERFACE(IProperties)
+
 	/*! Enumerate list of properties this object manages */
-	virtual const char **properties() const = 0;
+	virtual const char * const*properties() const = 0;
 	/*! String value of a property */
-	virtual const char *property(const char *name) const = 0;
+	virtual String property(const char *name) const = 0;
 	/*! Set value of a property from a string */
-	virtual void setProperty(const char *name, const char *value) = 0;
+	virtual void setProperty(const char *name, const String &value) = 0;
 	/*! Get a reference to actual value of a property */
 	virtual void *value(const char *name) = 0;
 	/*! Copy an object reference to property */

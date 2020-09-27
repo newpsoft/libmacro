@@ -16,43 +16,13 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/util/util.h"
+#define _CRT_SECURE_NO_WARNINGS
+
+#include "mcr/libmacro.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-
-#include "mcr/util/c11threads.h"
-
-/* thread_local not available for MSVC.  Check new versions? */
-#ifdef _MSC_VER
-	/* Dll workaround, mcr_err is not dll exported. */
-	#undef mcr_err
-	extern int mcr_err;
-#else
-	/* Shared and exported thread_local.  Fast and thread-safe access. */
-	MCR_API
-	#ifdef __GNUC__
-		__thread
-	#else
-		thread_local
-	#endif
-#endif
-int mcr_err;
-
-int *mcr_err_tls()
-{
-	return &mcr_err;
-}
-
-int mcr_read_err()
-{
-	int ret = mcr_err;
-	if (ret)
-		mcr_err = 0;
-	return ret;
-}
 
 const char *mcr_timestamp()
 {
@@ -67,7 +37,7 @@ size_t mcr_bit_index(uintmax_t bitval)
 	 * If not 0, there will definitely be some bit value contained */
 	size_t index = 0;
 	if (bitval == 0)
-		return (size_t)-1;
+		return (size_t)~0;
 	while ((bitval & 0x01) == 0) {
 		++index;
 		bitval >>= 1;
@@ -91,8 +61,9 @@ int mcr_thrd_errno(int thrdError)
 	}
 	return -1;
 }
+
 /*! \todo If thread created but not detached, calling function may free
- * resources currently in use by new thread. */
+ *  resources currently in use by new thread. */
 int mcr_thrd(thrd_start_t func, void *arg)
 {
 	int thrdErr;
@@ -103,9 +74,6 @@ int mcr_thrd(thrd_start_t func, void *arg)
 		return 0;
 	}
 	mcr_err = mcr_thrd_errno(thrdErr);
-#ifdef MCR_DEBUG
-	dexit;
-#else
+	mcr_dexit;
 	return mcr_err;
-#endif
 }

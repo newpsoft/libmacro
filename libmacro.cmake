@@ -13,18 +13,23 @@ else ()
 	unset(MCR_DEBUG)
 endif ()
 
-# LINUX was not set by cmake
-if (UNIX AND NOT APPLE)
-    set (LINUX true)
-endif (UNIX AND NOT APPLE)
 if (WIN32)
 	set(MCR_PLATFORM windows)
-elseif (LINUX)
-	set(MCR_PLATFORM linux)
 elseif (APPLE)
 	set(MCR_PLATFORM apple)
+# LINUX is defined as UNIX AND NOT APPLE by cmake
+elseif (UNIX)
+	# Explicit LINUX definition, other UNIX platforms not yet supported.
+	set(LINUX true)
+	set(MCR_PLATFORM linux)
 else ()
 	set(MCR_PLATFORM none)
 endif (WIN32)
+string(TOUPPER ${MCR_PLATFORM} MCR_PLATFORM_UPPER)
 set(${MCR_PLATFORM} true)
-add_definitions(-DMCR_PLATFORM=${MCR_PLATFORM})
+set(MCR_PLATFORM_${MCR_PLATFORM_UPPER} true)
+add_definitions(-DMCR_PLATFORM=${MCR_PLATFORM}
+	-DMCR_PLATFORM_${MCR_PLATFORM_UPPER}=1
+	-DMCR_PLATFORM_DEFINES_H=\"mcr/${MCR_PLATFORM}/p_defines.h\"
+	-DMCR_PLATFORM_H=\"mcr/${MCR_PLATFORM}/p_libmacro.h\"
+	)

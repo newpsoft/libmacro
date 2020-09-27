@@ -37,25 +37,33 @@ struct mcr_Action {
 	unsigned int trigger_flags;
 };
 
-/*! \ref mcr_Action ctor
+/*! \ref ctor
+ *
+ *  Modifiers set to MCR_MF_NONE and flags set to MCR_TF_ALL
+ *  \param actPt \ref opt
+ */
+MCR_API void mcr_Action_init(struct mcr_Action *actPt);
+/*! \ref ctor \ref mcr_Action_init
  *
  *  Modifiers set to MCR_MF_NONE and flags set to MCR_TF_ALL
  *  \param actPt \ref opt \ref mcr_Action
  *  \return 0
  */
-MCR_API int mcr_Action_init(void *actPt);
-/* Default deinit, compare, copy */
+MCR_API int mcr_Action_init_(void *ptr);
+/* Default allocate, deallocate, deinit, compare, and copy */
+
 /*! \pre Trigger data is \ref mcr_Action
  *  \brief \ref mcr_ITrigger.receive for \ref mcr_Action
  */
-MCR_API bool mcr_Action_receive(void *trigPt, struct mcr_Signal *sigPt,
+MCR_API bool mcr_Action_receive(struct mcr_Trigger *trigPt,
+								struct mcr_Signal *sigPt,
 								unsigned int mods);
 
 /*! \ref mcr_ITrigger for \ref mcr_Action */
 MCR_API struct mcr_ITrigger *mcr_iAction(struct mcr_context *ctx);
-/*! \ref mcr_Action data from \ref mcr_Trigger */
+/*! \ref mcr_Action member of \ref mcr_Trigger */
 #define mcr_Action_data(trigPt) \
-mcr_castpt(struct mcr_Action, mcr_Instance_data(trigPt))
+mcr_castpt(struct mcr_Action, mcr_Trigger_data(trigPt))
 
 #ifdef __cplusplus
 }

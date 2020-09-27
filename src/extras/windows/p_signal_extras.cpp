@@ -21,49 +21,49 @@
 
 #include <cstring>
 
-#define winerr dprint("Windows Error: %ld\n", GetLastError());
-#define zero(obj) std::memset(&(obj), 0, sizeof(obj))
+#define winerr mcr_dprint("Windows Error: %ld\n", GetLastError())
 
 namespace mcr
 {
-void Command::send()
+// \todo QT Process
+void Command::send(mcr_Signal *)
 {
 	std::string cmdline, mem;
 	STARTUPINFOA sInfo;
 	PROCESS_INFORMATION pInfo;
-	if (!_file.length()) {
-		mset_error(ENOENT);
-		throw ENOENT;
-	}
+	SafeString *array = argsArray();
+	size_t count = argCount();
+	mcr_throwif(!_file.length(), ENOENT);
 	mcr_err = 0;
-	zero(sInfo);
-	zero(pInfo);
-	cmdline = "\"" + _file.text() + "\"";
-	for (auto &i: argsRef()) {
-		mem = i.text();
+	ZERO(sInfo);
+	ZERO(pInfo);
+	cmdline = "\"" + std::string(*_file.text()) + "\"";
+	for (size_t i = 0; i < count; i++) {
+		mem = *array[i].text();
 		if (mem.length())
 			cmdline.append(" \"" + mem + '"');
 	}
 	GetStartupInfoA(&sInfo);
 	/* Replace with CreateThread + CreateProcess if CreateProcess does not work */
 	/* Create as user, lower securty rights */
-	/// \bug Executable with lower access rights, or create process as user
-	if (!CreateProcessA(nullptr, &cmdline.front(), nullptr,
-						nullptr, FALSE,
-						PROFILE_USER | DETACHED_PROCESS | NORMAL_PRIORITY_CLASS,
-						nullptr, nullptr, &sInfo, &pInfo)) {
+	//! \bug Executable with lower access rights, or create process as user
+	if (!CreateProcessA(nullptr, &cmdline.front(), nullptr, nullptr, FALSE,
+						PROFILE_USER | DETACHED_PROCESS | NORMAL_PRIORITY_CLASS, nullptr, nullptr,
+						&sInfo, &pInfo)) {
 		winerr;
 		mcr_errno(EINTR);
+		throw mcr_read_err();
 	} else if (WaitForSingleObject(pInfo.hProcess,
-								   MCR_INTERCEPT_WAIT_MILLIS)/* != WAIT_OBJECT_0*/) {
+								   MCR_INTERCEPT_WAIT_MILLIS) != WAIT_OBJECT_0) {
 		winerr;
 		mcr_errno(EINTR);
+		throw mcr_read_err();
 	}
 	if (mcr_err) {
 		if (!CloseHandle(pInfo.hThread) || !CloseHandle(pInfo.hProcess)) {
 			winerr;
 		}
-		throw mcr_err;
+		throw mcr_read_err();
 	}
 }
 }

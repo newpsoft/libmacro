@@ -20,10 +20,11 @@
  *  \brief Grabber - Take exclusive access to a /dev/input event.
  */
 
-#ifndef MCR_INTERCEPT_LNX_NGRABBER_H_
-#define MCR_INTERCEPT_LNX_NGRABBER_H_
+#ifndef MCR_INTERCEPT_LINUX_P_GRABBER_H_
+#define MCR_INTERCEPT_LINUX_P_GRABBER_H_
 
-#include "mcr/intercept/linux/p_def.h"
+#include "mcr/standard/standard.h"
+#include "mcr/standard/linux/p_standard.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,6 +32,7 @@ extern "C" {
 
 /*! Take exclusive access to a /dev/input event. */
 struct mcr_Grabber {
+	struct mcr_context *context;
 	/*! Allow blocked grabbing, \ref EVIOCGRAB
 	 *
 	 *  Default false. */
@@ -38,15 +40,17 @@ struct mcr_Grabber {
 	/*! File of input event to read */
 	int fd;
 	/*! File path of input event */
-	struct mcr_Array path;
+	const char *path;
+	// \todo bool value for in-thread and reading?
 };
 
-/*! ctor */
-MCR_API int mcr_Grabber_init(void *grabPt);
-MCR_API int mcr_Grabber_deinit(void *grabPt);
+/*! \ref ctor */
+MCR_API void mcr_Grabber_init(struct mcr_Grabber *grabPt, struct mcr_context *ctx);
+MCR_API void mcr_Grabber_ctor(struct mcr_Grabber *grabPt, struct mcr_context *ctx, bool blocking, const char *path);
+MCR_API int mcr_Grabber_deinit(struct mcr_Grabber *grabPt);
 
 /*! \ref mcr_Grabber.blocking */
-MCR_API bool mcr_Grabber_is_blocking(struct mcr_Grabber *grabPt);
+MCR_API bool mcr_Grabber_blocking(struct mcr_Grabber *grabPt);
 /*! \ref mcr_Grabber.blocking, and will also set EVIOCGRAB if currently
  *  enabled. */
 MCR_API int mcr_Grabber_set_blocking(struct mcr_Grabber *grabPt, bool enable);
@@ -57,7 +61,7 @@ MCR_API int mcr_Grabber_set_path(struct mcr_Grabber *grabPt, const char *path);
 /*! Get enabled state, and set the grabber enabled
  *  state to the same.
  */
-MCR_API bool mcr_Grabber_is_enabled(struct mcr_Grabber *grabPt);
+MCR_API bool mcr_Grabber_enabled(struct mcr_Grabber *grabPt);
 /*! Allow or disallow this object to function.
  *
  *  \return \ref reterr

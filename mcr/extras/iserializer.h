@@ -24,7 +24,10 @@
 #define MCR_EXTRAS_ISERIALIZER_H_
 #ifndef MCR_NOQT
 
-#include "mcr/extras/def.h"
+#include <QString>
+#include <QVariant>
+
+#include "mcr/extras/base_cpp.h"
 
 namespace mcr
 {
@@ -38,35 +41,31 @@ public:
 	 */
 	typedef ISerializer *(*get)();
 
-	ISerializer() = default;
-	ISerializer(const ISerializer &) = default;
-	virtual ~ISerializer() = default;
-	ISerializer &operator =(const ISerializer &) = default;
+	MCR_DECL_INTERFACE(ISerializer)
 
-	/*! \brief Object to serialize */
-	virtual void *object() const = 0;
-	/*! \brief Set the object to serialize */
-	virtual void setObject(void *val) = 0;
 	virtual size_t keyCount(bool canonical) const = 0;
-	virtual QString *keyData(bool canonical) const = 0;
-	/*! \brief Get a named value
-	 *
-	 *  \param canonical Use string values over integers. */
+	virtual QString *keysArray(bool canonical) const = 0;
+	/*! \brief Get a named value */
 	virtual QVariant value(const QString &name) const = 0;
 	virtual void setValue(const QString &name, const QVariant &val) = 0;
 
 	/* Helper functions */
-	inline std::vector<QString> keys(bool canonical) const
+	inline QStringList keys(bool canonical) const
 	{
-		auto ptr = keyData(canonical);
-		return std::vector<QString>(ptr, ptr + keyCount(canonical));
+		QStringList ret;
+		auto ptr = keysArray(canonical);
+		for (int i = 0; i < (int)keyCount(canonical); i++) {
+			ret.insert(i, ptr[i]);
+		}
+		return ret;
 	}
 
-	inline ISerializer &buildValue(const QString &name, const QVariant &val)
+	inline ISerializer &build(const QString &name, const QVariant &val)
 	{
 		setValue(name, val);
 		return *this;
 	}
+
 	/*! \brief Get all values of the object (Serialize)
 	 *
 	 *  \param canonical Use string values over integers. */

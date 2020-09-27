@@ -16,36 +16,28 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/standard/standard.h"
-
-#include <errno.h>
-
 #include "mcr/libmacro.h"
 
-void mcr_NoOp_set_all(struct mcr_NoOp *noopPt, int sec, int msec)
+int mcr_NoOp_send(struct mcr_Signal *signalPt)
 {
-	dassert(noopPt);
-	noopPt->sec = sec;
-	noopPt->msec = msec;
+	dassert(signalPt);
+	void *ptr = signalPt->instance.data_member.data;
+	if (!ptr)
+		return 0;
+	mcr_NoOp_send_member(ptr);
+	return 0;
 }
 
-int mcr_NoOp_send(struct mcr_Signal *sigPt)
-{
-	struct mcr_NoOp *nPt = mcr_NoOp_data(sigPt);
-	return nPt ? mcr_NoOp_send_data(nPt) : 0;
-}
-
-int mcr_NoOp_send_data(struct mcr_NoOp *noopPt)
+void mcr_NoOp_send_member(struct mcr_NoOp *noopPt)
 {
 	struct timespec val;
 	if (!noopPt)
-		return 0;
-	// # seconds contained in msec
-	val.tv_sec = noopPt->sec + noopPt->msec / 1000;
-	// # nanoseconds in msec, not including seconds left over
-	val.tv_nsec = (noopPt->msec % 1000) * 1000000;
+		return;
+	// # seconds maybe in msec
+	val.tv_sec = noopPt->seconds + noopPt->milliseconds / 1000;
+	// # nanoseconds in msec, not including full seconds
+	val.tv_nsec = (noopPt->milliseconds % 1000) * 1000000;
 	thrd_sleep(&val, NULL);
-	return 0;
 }
 
 struct mcr_ISignal *mcr_iNoOp(struct mcr_context *ctx)

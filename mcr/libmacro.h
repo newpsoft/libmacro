@@ -18,55 +18,48 @@
 
 /*! \file
  *  \brief Include all Libmacro functionality.
+ *
+ *  \todo Create a list of missing functionality when MCR_NOEXTRAS is defined.
  */
 
 /*! \namespace mcr
  *  \brief Libmacro, by Jonathan Pelletier, New Paradigm Software. Alpha version.
  *
- *  1. \ref mcr_Signal is dispatched to \ref mcr_Dispatcher using \ref mcr_dispatch.\n
- *  		1.0.a Disable dispatch for a signal by setting \ref mcr_Signal.is_dispatch to false.\n
- *  		1.0.b Disable dispatch of an ISignal type by setting \ref mcr_ISignal.dispatcher to NULL.\n
- *  		1.0.c Disable Libmacro generic dispatch (listen to all types) by setting \ref mcr_context.signal.is_generic_dispatcher to false.\n
- *  	1.1 Dispatching may be received by \ref mcr_DispatchPair.\n
+ *  1. \ref mcr_Signal is dispatched to \ref mcr_IDispatcher using \ref mcr_dispatch.\n
+ *  		1.0.a Disable dispatch for a signal by setting \ref mcr_Signal.dispatch_flag to false.\n
+ *  		1.0.b Disable dispatch for all of an ISignal type by setting \ref mcr_ISignal.dispatcher to NULL.\n
+ *  		1.0.c Disable Libmacro generic dispatch (receive all types) by setting \ref mcr_context.base.generic_dispatcher_flag to false.\n
+ *  	1.1 Dispatching may be received by \ref mcr_DispatchReceiver.\n
  *  	1.2 \ref mcr_Trigger_receive may be used to dispatch into \ref mcr_Trigger.\n
  *  	1.3 Triggered action may be a \ref mcr_Macro, which sends a list of \ref mcr_Signal.\n
  *  2. If signal is not blocked by dispatching, it is then sent to cause an action.\n
  */
 
-/// \todo Separate context and functions to context.h?
+//! \todo Separate context and functions to context.h?
 
 #ifndef MCR_LIBMACRO_H_
 #define MCR_LIBMACRO_H_
 
-#include "mcr/util/util.h"
-#include "mcr/signal/signal.h"
-#include "mcr/macro/macro.h"
-#include "mcr/standard/standard.h"
-#include "mcr/intercept/intercept.h"
+// Includes all modules
+#include "mcr/context.h"
 
 #ifdef __cplusplus
-#include "mcr/extras/extras.h"
+#ifndef MCR_NOEXTRAS
+	#include "mcr/extras/extras.h"
+#endif
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
-/*! Libmacro library context, required for Libmacro functions
- *
- *  In cases of extreme complexity please break glass.
- */
-struct mcr_context {
-	struct mcr_signal signal;
-	struct mcr_macro macro;
-	struct mcr_standard standard;
-	struct mcr_intercept intercept;
-};
-
 /*! \ref malloc and \ref mcr_initialize a \ref mcr_context
  *
- *  Will also \ref mcr_load_contracts and \ref mcr_trim.
+ *  Will not load contracts.
  *  Will set \ref mcr_err.
  *  \return Dynamic and initialized Libmacro context, or NULL on error
  */
-MCR_API struct mcr_context *mcr_allocate();
+extern MCR_API struct mcr_context *mcr_allocate();
 /*! \ref mcr_deinitialize and \ref free.
  *
  *  Only use with a context created by malloc or \ref mcr_allocate.
@@ -76,14 +69,14 @@ MCR_API struct mcr_context *mcr_allocate();
  *  \param ctx Libmacro context
  *  \return \ref reterr
  */
-MCR_API int mcr_deallocate(struct mcr_context *ctx);
+extern MCR_API int mcr_deallocate(struct mcr_context *ctx);
 /*! Initialize Libmacro resources
  *
  *  Will set \ref mcr_err.
  *  \param ctx Libmacro context
  *  \return \ref reterr
  */
-MCR_API int mcr_initialize(struct mcr_context *ctx);
+extern MCR_API int mcr_initialize(struct mcr_context *ctx);
 /*! Clean all resources used by Libmacro.
  *
  *  Because of threading do not deinitialize in a deconstructor or on program
@@ -92,20 +85,21 @@ MCR_API int mcr_initialize(struct mcr_context *ctx);
  *  \param ctx Libmacro context
  *  \return \ref reterr
  */
-MCR_API int mcr_deinitialize(struct mcr_context *ctx);
-/*! Load string contracts
+extern MCR_API int mcr_deinitialize(struct mcr_context *ctx);
+/*! Register standard types and map their given names.
  *
- *  String contracts map string names or keys to types and instances.
- *  Will set \ref mcr_err.
+ *  \pre context must be initialized
+ *  \ref mcr_base.isignal_registry_pt
+ *  \ref mcr_base.itrigger_registry_pt
  *  \param ctx Libmacro context
  *  \return \ref reterr
  */
-MCR_API int mcr_load_contracts(struct mcr_context *ctx);
+extern MCR_API int mcr_load_contracts(struct mcr_context *ctx);
 /*! Minimize allocation used by Libmacro.
  *
  *  \param ctx Libmacro context
  */
-MCR_API void mcr_trim(struct mcr_context *ctx);
+extern MCR_API void mcr_trim(struct mcr_context *ctx);
 
 #ifdef __cplusplus
 }

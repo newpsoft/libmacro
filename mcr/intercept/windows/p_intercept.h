@@ -17,32 +17,41 @@
 */
 
 /*! \file
- *  \brief Read from grabbers and dispatch signals. This may block
- *  incoming events.
+ *  \brief Read and dispatch signals. This may block incoming events.
  */
 
 #ifndef MCR_INTERCEPT_WIN_NINTERCEPT_H_
 #define MCR_INTERCEPT_WIN_NINTERCEPT_H_
 
-#include "mcr/intercept/windows/p_grabber.h"
+#include "mcr/standard/standard.h"
+#include "mcr/standard/windows/p_standard.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MCR_GRAB_COUNT 2
+// Last index is count - 1
+#define MCR_WM_HIDECHO_COUNT (WM_MOUSELAST - WM_MOUSEFIRST + 1)
+#define MCR_WM_HIDECHO_INDEX(wParam) (wParam - WM_MOUSEFIRST)
 
 struct mcr_intercept_platform {
-	struct mcr_Grabber *grab_key;
-	struct mcr_Grabber *grab_mouse;
-	struct mcr_Grabber *all_grabbers[MCR_GRAB_COUNT];
+	/*! Map WPARAM hook windows message to size_t echo code.
+	 *  There is a min and max windows mouse message, so this is a
+	 *  statically typed array.  Get the index by WPARAM - WM_MOUSEFIRST
+	 *  or \ref
+	 */
+	size_t wm_echos[MCR_WM_HIDECHO_COUNT];
 };
 
-MCR_API bool mcr_intercept_key_is_enabled(struct mcr_context *ctx);
+/*! \ref mcr_platform
+ */
+extern MCR_API const size_t *const mcr_intercept_wm_echo_defaults;
+
+MCR_API bool mcr_intercept_key_enabled(struct mcr_context *ctx);
 MCR_API int mcr_intercept_key_set_enabled(struct mcr_context *ctx, bool enable);
-MCR_API bool mcr_intercept_mouse_is_enabled(struct mcr_context *ctx);
-MCR_API int mcr_intercept_move_set_enabled(struct mcr_context *ctx,
-		bool enable);
+MCR_API bool mcr_intercept_mouse_enabled(struct mcr_context *ctx);
+MCR_API int mcr_intercept_mouse_set_enabled(struct mcr_context *ctx, bool enable);
+MCR_API int mcr_intercept_set_wm_echo(struct mcr_context *ctx, WPARAM wm, size_t echoCode);
 
 #ifdef __cplusplus
 }

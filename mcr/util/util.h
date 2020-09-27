@@ -23,20 +23,13 @@
 #ifndef MCR_UTIL_UTIL_H_
 #define MCR_UTIL_UTIL_H_
 
-#include "mcr/util/instance.h"
-#include "mcr/util/map.h"
-#include "mcr/util/priv.h"
-#include "mcr/util/registry.h"
-#include "mcr/util/string_index.h"
+#include "mcr/util/c11threads.h"
+#include "mcr/util/comparison.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef int (*thrd_start_t) (void *);
-
-/*! Get current \ref mcr_err and reset mcr_err to 0. */
-MCR_API int mcr_read_err();
 /*! time(NULL) and ctime */
 MCR_API const char *mcr_timestamp();
 /*! For given bit return the corresponding array index.
@@ -59,6 +52,14 @@ MCR_API int mcr_thrd_errno(int thrdError);
  *	\return \ref reterr
  */
 MCR_API int mcr_thrd(thrd_start_t func, void *arg);
+
+/*! Disable privileges, and remove the ability to
+ *  enable them.
+ *
+ *  \ref mcr_platform
+ *  \return \ref reterr
+ */
+MCR_API int mcr_privileges_deactivate();
 
 #ifdef __cplusplus
 }

@@ -25,7 +25,8 @@
 #ifndef MCR_EXTRAS_SAFE_STRING_H_
 #define MCR_EXTRAS_SAFE_STRING_H_
 
-#include "mcr/extras/def.h"
+#include "mcr/extras/util/string.h"
+#include <cstring>
 
 /* 256 / 8, 256 bits => 32 bytes */
 /*! AES block bytes */
@@ -41,10 +42,8 @@ namespace mcr
 class MCR_API IKeyProvider
 {
 public:
-	IKeyProvider() = default;
-	IKeyProvider(const IKeyProvider &) = default;
-	virtual ~IKeyProvider() {}
-	IKeyProvider &operator =(const IKeyProvider &) = default;
+	MCR_DECL_INTERFACE(IKeyProvider)
+
 	/*! Get an encryption key for a specific string object
 	 *
 	 *  If the object is not yet registered the key should be generated
@@ -60,16 +59,6 @@ public:
 	 *  \param obj String object to remove key for
 	 */
 	virtual void deregister(const void *obj) = 0;
-	/*! \ref SafeString::generateKey
-	 *  \param keyOut Buffer to write key to
-	 */
-	static inline void generate(unsigned char keyOut[MCR_AES_BLOCK_SIZE]);
-	/*! \ref SafeString::sha
-	 *  \param text Plain text to compute hash for
-	 *  \param bufferOut Write hash to this buffer
-	 */
-	static inline void sha(const std::string &text,
-						   unsigned char bufferOut[MCR_AES_BLOCK_SIZE]);
 };
 
 /*! A string that can be encrypted in memory */
@@ -82,17 +71,14 @@ public:
 	 *  \param cryptic \ref opt Initial encryption state
 	 */
 	SafeString(IKeyProvider *keyProvider = nullptr,
-			   const std::string &str = std::string(),
+			   const String &str = String(),
 			   bool cryptic = true)
 		: _cryptic(cryptic
 				   && keyProvider), _encrypted(nullptr), _encryptedBufferSize(0),
-		  _encryptedBytes(0),
-		  _keyProvider(keyProvider), _lenMem(0), _plain(nullptr), _plainBufferSize(0),
-		  _stateless(false)
+		  _encryptedBytes(0), _keyProvider(keyProvider), _iv {0}, _lenMem(0),
+		  _plain(nullptr), _plainBufferSize(0), _stateless(false), _tag {0}
 	{
-		std::memset(_iv, 0, sizeof(_iv));
-		std::memset(_tag, 0, sizeof(_tag));
-		if (cryptic)
+		if (_cryptic)
 			resetIv();
 		setText(str);
 	}
@@ -105,7 +91,7 @@ public:
 			setText(copytron.text());
 		return *this;
 	}
-	inline SafeString &operator =(const std::string &str)
+	inline SafeString &operator =(const String &str)
 	{
 		setText(str);
 		return *this;
@@ -133,14 +119,14 @@ public:
 	 *  length.
 	 *  \return Length of encrypted bytes written to bufferOut. Will be -1 for any errors.
 	 */
-	static inline int encrypt(const std::string &plainText,
+	static inline int encrypt(const String &plainText,
 							  const unsigned char key[MCR_AES_BLOCK_SIZE],
 							  const unsigned char iv[MCR_AES_IV_SIZE],
 							  unsigned char tagOut[MCR_AES_TAG_SIZE], unsigned char *bufferOut)
 	{
-		return encrypt(plainText.c_str(), plainText.size(), key, iv, tagOut, bufferOut);
+		return encrypt(*plainText, plainText.length(), key, iv, tagOut, bufferOut);
 	}
-	/*! \ref mcr_is_platform Plain text => encrypted text
+	/*! \ref mcr_platform Plain text => encrypted text
 	 *
 	 *  This is usually defined in the ssl directory.  Redefine if not
 	 *  linking to a libcrypto- or libssl-compatible library.
@@ -162,40 +148,34 @@ public:
 	 *  stateless encryption.
 	 *  \return Decrypted string
 	 */
-	static inline std::string decrypt(const unsigned char *encrypted,
-									  int encryptedLength,
-									  const unsigned char key[MCR_AES_BLOCK_SIZE],
-									  const unsigned char iv[MCR_AES_IV_SIZE],
-									  const unsigned char tag[])
+	static inline String decrypt(const unsigned char *encrypted,
+								 int encryptedLength,
+								 const unsigned char key[MCR_AES_BLOCK_SIZE],
+								 const unsigned char iv[MCR_AES_IV_SIZE],
+								 const unsigned char tag[])
 	{
-		std::string ret = "";
+		String ret;
 		size_t decLen = 0;
 		if (!encrypted || !encryptedLength)
-			return "";
-		char *buffer = new char[static_cast<unsigned int>(encryptedLength) + 1];
-		try {
-			decLen = decrypt(encrypted, encryptedLength, key, iv, tag, buffer);
-		} catch (int e) {
-			delete []buffer;
-			buffer = nullptr;
-			throw e;
-		}
+			return ret ? ret : nullptr;
+		ret.resize(encryptedLength);
+		/* May throw, string will delete self */
+		decLen = decrypt(encrypted, encryptedLength, key, iv, tag, ret.string());
 		if (static_cast<int>(decLen) != -1)
-			ret = buffer;
-		delete []buffer;
+			ret.setLength(decLen);
 		return ret;
 	}
-	/*! \ref mcr_is_platform Encrypted text => plain text
+	/*! \ref mcr_platform Encrypted text => plain text
 	 *
 	 *  This is usually defined in the ssl directory.  Redefine if not
 	 *  linking to a libcrypto- or libssl-compatible library.
 	 *  \return Length of decrypted bytes written to bufferOut.
 	 */
 	static size_t decrypt(const unsigned char *encrypted, int encryptedLength,
-							 const unsigned char key[MCR_AES_BLOCK_SIZE],
-							 const unsigned char iv[MCR_AES_IV_SIZE],
-							 const unsigned char tag[], char *bufferOut);
-	/*! \ref mcr_is_platform Output pseudo randomized bytes
+						  const unsigned char key[MCR_AES_BLOCK_SIZE],
+						  const unsigned char iv[MCR_AES_IV_SIZE],
+						  const unsigned char tag[], char *bufferOut);
+	/*! \ref mcr_platform Output pseudo randomized bytes
 	 *
 	 *  This is usually defined in the ssl directory.  Redefine if not
 	 *  linking to a libcrypto- or libssl-compatible library.
@@ -208,25 +188,25 @@ public:
 	 *  \param text Plain text to compute hash for
 	 *  \param bufferOut Write hash to this buffer
 	 */
-	static inline void sha(const std::string &text,
+	static inline void sha(const String &text,
 						   unsigned char bufferOut[MCR_AES_BLOCK_SIZE])
 	{
-		sha(text.c_str(), text.size(), bufferOut);
+		sha(*text, text.length(), bufferOut);
 	}
-	/*! \ref mcr_is_platform Create a SHA hash suitable to use as an encryption key
+	/*! \ref mcr_platform Create a SHA hash suitable to use as an encryption key
 	 *
 	 *  This is usually defined in the ssl directory.  Redefine if not
 	 *  linking to a libcrypto- or libssl-compatible library.
 	 */
 	static void sha(const char *text, size_t textLen,
 					unsigned char bufferOut[MCR_AES_BLOCK_SIZE]);
-	/*! \ref mcr_is_platform This is called in library initialization
+	/*! \ref mcr_platform This is called in library initialization
 	 *
 	 *  This is usually defined in the ssl directory.  Redefine if not
 	 *  linking to a libcrypto- or libssl-compatible library.
 	 */
 	static void initialize();
-	/*! \ref mcr_is_platform This is called in library cleanup
+	/*! \ref mcr_platform This is called in library cleanup
 	 *
 	 *  This is usually defined in the ssl directory.  Redefine if not
 	 *  linking to a libcrypto- or libssl-compatible library.
@@ -309,24 +289,16 @@ public:
 		return _lenMem;
 	}
 	/*! Get string as plain text */
-	inline std::string text() const
+	inline String text() const
 	{
-		char *bufferOut;
-		std::string ret = "";
+		String ret;
 		if (!_cryptic)
 			return _plain ? _plain : "";
 		if (!_lenMem)
 			return "";
-		bufferOut = new char[_lenMem + 1];
-		try {
-			text(bufferOut);
-			ret = bufferOut;
-		} catch (int e) {
-			delete []bufferOut;
-			bufferOut = nullptr;
-			throw e;
-		}
-		delete []bufferOut;
+		ret.resize(_lenMem);
+		text(ret.string());
+		ret.setLength(_lenMem);
 		return ret;
 	}
 	/*! Get string as plain text
@@ -336,9 +308,9 @@ public:
 	size_t text(char *bufferOut) const;
 	/*! Set string plain text, and will encrypt if currently
 	 *  encrypting */
-	inline void setText(const std::string &str = std::string())
+	inline void setText(const String &str = String())
 	{
-		setText(str.c_str(), str.size());
+		setText(*str, str.length());
 	}
 	/*! Set string plain text, and will encrypt if currently
 	 *  encrypting
@@ -349,9 +321,9 @@ public:
 	 *
 	 *  \param cryptic \ref setCryptic
 	 */
-	inline void setText(const std::string &str, bool cryptic)
+	inline void setText(const String &str, bool cryptic)
 	{
-		setText(str.c_str(), str.size(), cryptic);
+		setText(*str, str.length(), cryptic);
 	}
 	/*! Set string plain text
 	 *
@@ -376,16 +348,6 @@ private:
 	bool _stateless;
 	unsigned char _tag[MCR_AES_TAG_SIZE];
 };
-
-void IKeyProvider::generate(unsigned char keyOut[])
-{
-	SafeString::generateKey(keyOut);
-}
-
-void IKeyProvider::sha(const std::string &text, unsigned char bufferOut[])
-{
-	SafeString::sha(text, bufferOut);
-}
 }
 
 #endif

@@ -16,37 +16,27 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/standard/standard.h"
-
-#include <string.h>
-
 #include "mcr/libmacro.h"
 
-void mcr_MoveCursor_set_all(struct mcr_MoveCursor *mcPt,
-							const mcr_SpacePosition pos, bool flagJustify)
+int mcr_MoveCursor_send(struct mcr_Signal *signalPt)
 {
-	dassert(mcPt);
-	memcpy(mcPt->pos, pos, sizeof(mcr_SpacePosition));
-	mcPt->is_justify = flagJustify;
+	dassert(signalPt);
+	void *ptr = signalPt->instance.data_member.data;
+	if (!ptr)
+		return 0;
+	return mcr_MoveCursor_send_member(ptr, signalPt->interface->context);
 }
 
-int mcr_MoveCursor_send(struct mcr_Signal *sigPt)
-{
-	dassert(sigPt);
-	mcr_MC *mcPt = mcr_MC_data(sigPt);
-	return mcPt ? mcr_MoveCursor_send_data(mcPt) : 0;
-}
-
-bool mcr_resembles(const struct mcr_MoveCursor * lhs,
-				   const struct mcr_MoveCursor * rhs, const unsigned int measurementError)
+bool mcr_resembles(const struct mcr_MoveCursor *lhs,
+				   const struct mcr_MoveCursor *rhs, const unsigned int measurementError)
 {
 	if (!lhs || !rhs)
 		return lhs == rhs;
-	if (lhs->is_justify != rhs->is_justify)
+	if (lhs->justify_flag != rhs->justify_flag)
 		return false;
-	if (lhs->is_justify)
-		return mcr_resembles_justified(lhs->pos, rhs->pos);
-	return mcr_resembles_absolute(lhs->pos, rhs->pos, measurementError);
+	if (lhs->justify_flag)
+		return mcr_resembles_justified(lhs->position, rhs->position);
+	return mcr_resembles_absolute(lhs->position, rhs->position, measurementError);
 }
 
 struct mcr_ISignal *mcr_iMoveCursor(struct mcr_context *ctx)

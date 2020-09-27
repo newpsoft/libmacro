@@ -1,3 +1,5 @@
+#pragma once
+
 #include <QtTest/QtTest>
 
 #include "mcr/libmacro.h"
@@ -17,5 +19,5 @@ private slots:
 	void receive();
 private:
 	mcr_context *_ctx;
-	mcr_Macro *_mcrPt;
+	mcr::Macro *_mcrPt;
 };

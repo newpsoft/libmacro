@@ -16,52 +16,43 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/standard/standard.h"
-
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "mcr/libmacro.h"
 
-void mcr_Modifier_set_all(struct mcr_Modifier *modPt, unsigned int modifiers,
-						  enum mcr_ApplyType applyType)
+int mcr_Modifier_send(struct mcr_Signal *signalPt)
 {
-	modPt->modifiers = modifiers;
-	modPt->apply = applyType;
+	dassert(signalPt);
+	void *ptr = signalPt->instance.data_member.data;
+	if (!ptr)
+		return 0;
+	dassert(signalPt->isignal);
+	mcr_Modifier_send_member(ptr, signalPt->interface->context);
+	return 0;
 }
 
-int mcr_Modifier_send(struct mcr_Signal *sigPt)
+void mcr_Modifier_send_member(struct mcr_Modifier *modPt, struct mcr_context *ctx)
 {
-	struct mcr_Modifier *modPt = mcr_Modifier_data(sigPt);
-	struct mcr_ISignal *isigPt = sigPt->isignal;
-	struct mcr_context *context;
-	if (isigPt && modPt) {
-		context = isigPt->interface.context;
+	if (modPt && ctx) {
 		switch (modPt->apply) {
 		case MCR_SET:
-			context->signal.internal_modifiers |= modPt->modifiers;
+			ctx->modifiers |= modPt->modifiers;
 			break;
 		case MCR_UNSET:
 		case MCR_BOTH:
-			context->signal.internal_modifiers &=
+			ctx->modifiers &=
 				(~modPt->modifiers);
 			break;
 		case MCR_TOGGLE:
-			if ((context->signal.
-				 internal_modifiers & modPt->modifiers)
+			if ((ctx->modifiers & modPt->modifiers)
 				== modPt->modifiers) {
-				context->signal.internal_modifiers &=
+				ctx->modifiers &=
 					(~modPt->modifiers);
 			} else {
-				context->signal.internal_modifiers |=
+				ctx->modifiers |=
 					modPt->modifiers;
 			}
 			break;
 		}
 	}
-	return 0;
 }
 
 void mcr_Modifier_modify(struct mcr_Modifier *modPt,

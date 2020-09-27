@@ -28,7 +28,6 @@
 
 struct mcr_context *mcr_allocate()
 {
-	int err;
 	struct mcr_context *ctx = malloc(sizeof(struct mcr_context));
 	if (!ctx) {
 		mcr_errno(ENOMEM);
@@ -38,60 +37,36 @@ struct mcr_context *mcr_allocate()
 		free(ctx);
 		return NULL;
 	}
-	if ((err = mcr_load_contracts(ctx))) {
-		mcr_deinitialize(ctx);
-		/* Recover load error */
-		mcr_err = err;
-		return NULL;
-	}
-	mcr_trim(ctx);
 	return ctx;
 }
 
 int mcr_deallocate(struct mcr_context *ctx)
 {
 	if (!ctx)
-		return (mcr_err = EINVAL);
+		mcr_error_set_return(EFAULT);
 	mcr_deinitialize(ctx);
 	free(ctx);
 	return mcr_err;
 }
 
-#define local_err_stack_size 4
-static int local_err(struct mcr_context *ctx,
-					 int (**errStack) (struct mcr_context *), int stackCount)
-{
-	dassert(stackCount <= local_err_stack_size);
-	/* Traverse backwards through stack */
-	while (stackCount--) {
-		errStack[stackCount] (ctx);
-	}
-	return mcr_err;
-}
-
 int mcr_initialize(struct mcr_context *ctx)
 {
-	int stackCount = 0;
-	int (*errStack[local_err_stack_size]) (struct mcr_context *) = {
-		mcr_signal_deinitialize, mcr_macro_deinitialize,
-		mcr_standard_deinitialize
-	};
 	if (!ctx)
-		return (mcr_err = EINVAL);
+		return (mcr_err = EFAULT);
 	mcr_err = 0;
 	memset(ctx, 0, sizeof(struct mcr_context));
 	/* No error functions yet on stack */
-	if (mcr_signal_initialize(ctx))
+	if (mcr_base_initialize(ctx))
 		return mcr_err;
-	++stackCount;
-	if (mcr_macro_initialize(ctx))
-		return local_err(ctx, errStack, stackCount);
-	++stackCount;
-	if (mcr_standard_initialize(ctx))
-		return local_err(ctx, errStack, stackCount);
-	++stackCount;
-	if (mcr_intercept_initialize(ctx))
-		return local_err(ctx, errStack, stackCount);
+	if (mcr_standard_initialize(ctx)) {
+		mcr_base_deinitialize(ctx);
+		return mcr_err;
+	}
+	if (mcr_intercept_initialize(ctx)) {
+		mcr_base_deinitialize(ctx);
+		mcr_standard_deinitialize(ctx);
+		return mcr_err;
+	}
 	return 0;
 }
 
@@ -100,24 +75,43 @@ int mcr_deinitialize(struct mcr_context *ctx)
 	mcr_err = 0;
 	mcr_intercept_deinitialize(ctx);
 	mcr_standard_deinitialize(ctx);
-	mcr_macro_deinitialize(ctx);
-	mcr_signal_deinitialize(ctx);
+	mcr_base_deinitialize(ctx);
 	return mcr_err;
 }
 
 int mcr_load_contracts(struct mcr_context *ctx)
 {
+	struct mcr_ISignal *isigs[] = {
+		mcr_iHidEcho(ctx), mcr_iKey(ctx), mcr_iModifier(ctx),
+		mcr_iMoveCursor(ctx), mcr_iNoOp(ctx), mcr_iScroll(ctx)
+	};
+	const char *sigNames[] = {
+		"HidEcho", "Key", "Modifier", "MoveCursor", "NoOp", "Scroll"
+	};
+	const char *addNames[][2] = {
+		{ "HID Echo", "hid_echo" }, {NULL}, {NULL}, {"Move Cursor", "move_cursor"},
+		{NULL}, {NULL}
+	};
+	size_t i = 0, count = arrlen(isigs);
+	struct mcr_IRegistry *iregPt = mcr_ISignal_registry(ctx);
+	dassert(count == arrlen(sigNames) && count == arrlen(addNames));
 	mcr_err = 0;
-	if (mcr_signal_load_contract(ctx))
-		return mcr_err;
-	if (mcr_standard_load_contract(ctx))
+	for (i = 0; i < count; i++) {
+		bool addNamesFlag = addNames[i][0];
+		if (mcr_register(iregPt, &isigs[i]->interface, sigNames[i],
+						 addNamesFlag ? addNames[i] : NULL,
+						 addNamesFlag ? 2 : 0)) {
+			dmsg;
+			return mcr_err;
+		}
+	}
+	iregPt = mcr_ITrigger_registry(ctx);
+	if (mcr_register(iregPt, &mcr_iAction(ctx)->interface, "Action", NULL, 0))
 		return mcr_err;
 	return 0;
 }
 
 void mcr_trim(struct mcr_context *ctx)
 {
-	mcr_signal_trim(ctx);
-	mcr_macro_trim(ctx);
-	mcr_standard_trim(ctx);
+	mcr_base_trim(ctx);
 }

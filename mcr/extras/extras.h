@@ -28,93 +28,144 @@
 #ifndef MCR_EXTRAS_EXTRAS_H_
 #define MCR_EXTRAS_EXTRAS_H_
 
-#include "mcr/extras/command.h"
-#include "mcr/extras/interrupt.h"
-#include "mcr/extras/string_key.h"
-#include "mcr/extras/wrap_trigger.h"
+#include "mcr/extras/signals/command.h"
+#include "mcr/extras/signals/interrupt.h"
+#include "mcr/extras/signals/string_key.h"
+#include "mcr/extras/macro.h"
 #include "mcr/extras/macros_interrupted.h"
+#include "mcr/extras/registry.h"
+#include "mcr/extras/serial.h"
+#include "mcr/extras/wrappers.h"
+#include "mcr/extras/references/isignal_builder.h"
+#include "mcr/extras/references/signal_builder.h"
+#include "mcr/extras/references/itrigger_builder.h"
+#include "mcr/extras/references/trigger_builder.h"
+#include "mcr/extras/dispatcher.h"
+#include "mcr/extras/key_dispatcher.h"
 
 namespace mcr
 {
-struct MCR_API Libmacro final {
-	MacrosInterrupted macrosInterrupted;
+/*! Non-exportable members */
+class LibmacroPrivate;
+/*! Platform-specific */
+class LibmacroPlatform;
+struct MCR_API Libmacro final // And that's final!
+{
+	friend class LibmacroPrivate;
+	friend class LibmacroPlatform;
 
-	/*! ctor
+	mcr_context self;
+	// \todo C-structs inside mcr_context as functions instead of references?
+
+	Registry isignalRegistry;
+	Registry itriggerRegistry;
+
+	mcr_ISignal &iHidEcho;
+	mcr_ISignal &iKey;
+	mcr_ISignal &iModifier;
+	mcr_ISignal &iMoveCursor;
+	mcr_ISignal &iNoOp;
+	mcr_ISignal &iScroll;
+	ISignal iCommand;
+	ISignal iInterrupt;
+	ISignal iStringKey;
+
+	mcr_ITrigger &iAction;
+//	//Trigger iAlarm;
+//	//Trigger iStaged;
+
+	Dispatcher genericDispatcher;
+	Dispatcher hidEchoDispatcher;
+	KeyDispatcher keyDispatcher;
+	Dispatcher modifierDispatcher;
+	Dispatcher moveCursorDispatcher;
+	Dispatcher noOpDispatcher;
+	Dispatcher scrollDispatcher;
+	Dispatcher commandDispatcher;
+	Dispatcher interruptDispatcher;
+	Dispatcher stringKeyDispatcher;
+
+	//CharacterRegistry characterRegistry
+	MacrosInterrupted macrosInterrupted;
+	Serial serial;
+
+	/*! \ref ctor
 	 *  \param enabled Initial enabled state, must be disabled before
 	 *  destruction
 	 */
 	Libmacro(bool enabled = true);
 	Libmacro(const Libmacro &);
-	/*! dtor If this is enabled during destruction threading errors
+	/*! \ref dtor If this is enabled during destruction threading errors
 	 *  are likely to happen
 	 */
 	~Libmacro();
 	Libmacro &operator =(const Libmacro &);
+
 	/*! Get the last created \ref Libmacro module
 	 *
 	 *  Will throw EFAULT if no \ref Libmacro exists, and will not create a
 	 *  singleton object
 	 */
 	static Libmacro *instance();
+	static inline Libmacro *instance(Libmacro *contextIfNotNull)
+	{
+		return contextIfNotNull ? contextIfNotNull : instance();
+	}
+	/*! Get the C++ Context of a C Context. */
 
-	inline const mcr_context *ptr() const
+	inline mcr_context &operator *()
 	{
-		return _context;
+		return self;
 	}
-	inline mcr_context *ptr()
+	inline const mcr_context &operator *() const
 	{
-		return _context;
+		return self;
 	}
-
-	inline mcr_ISignal *iHidEcho()
+	static inline Libmacro *offset(mcr_context *originPt)
 	{
-		return mcr_iHidEcho(ptr());
+		return mcr::offset<Libmacro>(originPt);
 	}
-	inline mcr_ISignal *iKey()
+	static inline const Libmacro *offset(const mcr_context *originPt)
 	{
-		return mcr_iKey(ptr());
-	}
-	inline mcr_ISignal *iModifier()
-	{
-		return mcr_iModifier(ptr());
-	}
-	inline mcr_ISignal *iMoveCursor()
-	{
-		return mcr_iMoveCursor(ptr());
-	}
-	inline mcr_ISignal *iNoOp()
-	{
-		return mcr_iNoOp(ptr());
-	}
-	inline mcr_ISignal *iScroll()
-	{
-		return mcr_iScroll(ptr());
-	}
-	inline CtxISignal &iCommand() const
-	{
-		return *_iCommand;
-	}
-	inline CtxISignal &iInterrupt() const
-	{
-		return *_iInterrupt;
-	}
-	inline CtxISignal &iStringKey() const
-	{
-		return *_iStringKey;
+		return mcr::offset<Libmacro>(originPt);
 	}
 
-	inline mcr_ITrigger *iAction()
+	template<typename ISignalMemberT>
+	ISignal &registerSignal(ISignal &isignal)
 	{
-		return mcr_iAction(ptr());
+		ISignalMemberT inst;
+		size_t count = inst.addNameCount();
+		const char **addN = count ? new const char *[count] : nullptr;
+		/* If not implemented this will do nothing \ref IDataMember.addNames */
+		inst.addNames(addN, count);
+		mcr_register(mcr_ISignal_registry(&self), &isignal.interface(), inst.name(), addN, count);
+		if (addN)
+			delete []addN;
+		if (mcr_err)
+			throw mcr_read_err();
+		return isignal;
 	}
-	inline mcr_ITrigger *iStaged()
+	template<typename ITriggerMemberT>
+	ITrigger &registerTrigger(ITrigger &itrigger)
 	{
-		return mcr_iStaged(ptr());
+		ITriggerMemberT inst;
+		size_t count = inst.addNameCount();
+		const char * const*addN = count ? new const char *[count] : nullptr;
+		/* If not implemented this will do nothing \ref IDataMember.addNames */
+		inst.addNames(addN, count);
+		mcr_register(mcr_ITrigger_registry(&self), &itrigger.interface(), inst.name(), addN, count);
+		if (addN)
+			delete []addN;
+		if (mcr_err)
+			throw mcr_read_err();
+		return itrigger;
 	}
+
+	// \todo iAlarm + iStaged
 	/*! Generic enabler for mcr_context functions, such as
 	 *  hardware hooks and any sort of threading.
 	 */
-	inline bool isEnabled() const
+	inline bool enabled() const
 	{
 		return _enabled;
 	}
@@ -123,16 +174,16 @@ struct MCR_API Libmacro final {
 	 */
 	void setEnabled(bool val);
 
-	/// \todo Find a place for Key registry characters
+	//! \todo Find a place for Key registry characters
 	size_t characterCount() const;
 	size_t characterCount(int c) const;
 	Signal *characterData(int c) const;
 
 	/*! Set signals for a character as a list of signals. */
-	inline void setCharacter(int c, const std::vector<Signal> &val)
+	template<typename T>
+	inline void setCharacter(int c, const T &val)
 	{
-		if (c < 0)
-			throw EINVAL;
+		mcr_throwif(c < 0, EINVAL);
 		setCharacter(c, &val.front(), val.size());
 	}
 	/*! Set signals for a character that will press, pause, and release a
@@ -154,39 +205,52 @@ struct MCR_API Libmacro final {
 	void removeCharacter(int c);
 	void trimCharacters();
 	void clearCharacters();
+
+	mcr_IDispatcher *dispatcher(size_t id) const;
+	inline mcr_IDispatcher *dispatcher(mcr_ISignal *isignalPt) const
+	{
+		return isignalPt ? dispatcher(isignalPt->interface.id) : nullptr;
+	}
+	inline mcr_IDispatcher *dispatcher(mcr_Signal *signalPt) const
+	{
+		return signalPt && signalPt->isignal ? dispatcher(signalPt->interface->id) : nullptr;
+	}
+	void setDispatcher(size_t id, mcr_IDispatcher *idispatcherPt);
+	inline void setGenericDispatcher(mcr_IDispatcher *idispatcherPt, bool enable = false)
+	{
+		setDispatcher(-1, idispatcherPt);
+		self.base.generic_dispatcher_flag = enable;
+	}
+	inline void setDispatcher(mcr_ISignal *isignalPt, mcr_IDispatcher *idispatcherPt, bool enable = false)
+	{
+		if (isignalPt) {
+			setDispatcher(mcr_ISignal_id(isignalPt), idispatcherPt);
+			isignalPt->dispatcher_pt = enable ? idispatcherPt : nullptr;
+		} else {
+			setGenericDispatcher(idispatcherPt, enable);
+		}
+	}
+	inline void setDispatcher(mcr_Signal *signalPt, mcr_IDispatcher *idispatcherPt, bool enable = false)
+	{
+		mcr_throwif(!signalPt, EFAULT);
+		mcr_throwif(!signalPt->isignal, EFAULT);
+		setDispatcher(signalPt->isignal, idispatcherPt, enable);
+	}
+	void clearDispatchers();
+
 private:
-	/*! Base Libmacro context */
-	mcr_context *_context;
-	CtxISignal *_iCommand;
-	CtxISignal *_iInterrupt;
-	CtxISignal *_iStringKey;
-	/*! Map index to set of signals for \ref StringKey
-	 *  vector<vector<Signal>> */
-	void *_characters;
 	bool _enabled;
+	/* non-export */
+	LibmacroPrivate *_private;
+	LibmacroPlatform *_platform;
 
 	void construct(bool enabled);
-	/*! \ref mcr_is_platform Platform initializer
+	/*! \ref mcr_platform Platform initializer
 	 */
 	void initialize();
-	/*! \ref mcr_is_platform Platform deinitializer
+	/*! \ref mcr_platform Platform deinitializer
 	 */
 	void deinitialize();
-	inline SignalSetSet &charactersRef() const
-	{
-		return *static_cast<SignalSetSet *>(_characters);
-	}
-	/* Get reference to Signal set for character, resize _characters if needed */
-	inline SignalSet &characterRef(int c) const
-	{
-		auto &chara = charactersRef();
-		size_t sizeC = static_cast<size_t>(c);
-		if (c < 0)
-			throw EINVAL;
-		if (sizeC >= chara.size())
-			chara.resize(sizeC + 1);
-		return chara[sizeC];
-	}
 
 	void setCharacter(int c, const Signal *valueArray, size_t count);
 };
