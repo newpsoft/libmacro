@@ -42,7 +42,7 @@ static unsigned int _initCount = 0;
 		EVP_CIPHER_CTX_free(ctx);
 	if (deleteBuffer)
 		delete []deleteBuffer;
-	throw mcr_err;
+	throw mcr_read_err();
 }
 
 int SafeString::encrypt(const char *plainText, size_t pLen,
@@ -111,9 +111,9 @@ int SafeString::encrypt(const char *plainText, size_t pLen,
 }
 
 size_t SafeString::decrypt(const unsigned char *encrypted,
-							  int encryptedLength,
-							  const unsigned char key[], const unsigned char iv[],
-							  const unsigned char tag[], char *bufferOut)
+						   int encryptedLength,
+						   const unsigned char key[], const unsigned char iv[],
+						   const unsigned char tag[], char *bufferOut)
 {
 	EVP_CIPHER_CTX *ctx;
 	int len = 0;
@@ -164,7 +164,7 @@ size_t SafeString::decrypt(const unsigned char *encrypted,
 	if (tag) {
 		/* If using gcm, set the encryption-paired tag */
 		if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
-								 MCR_AES_TAG_SIZE, const_cast<void *>(static_cast<const void *>(tag)))) {
+								 MCR_AES_TAG_SIZE, const_cast<void *>(reinterpret_cast<const void *>(tag)))) {
 			bufferOut[0] = '\0';
 			localOnErr(ctx);
 		}
@@ -209,10 +209,15 @@ void SafeString::sha(const char *text, size_t length,
 void SafeString::initialize()
 {
 	if (!_initCount++) {
-		OPENSSL_init_crypto(OPENSSL_INIT_NO_ADD_ALL_CIPHERS | OPENSSL_INIT_NO_ADD_ALL_DIGESTS, nullptr);
-//		OPENSSL_config(nullptr);
+#if OPENSSL_VERSION_NUMBER > 0x1000207fL
+		OPENSSL_init_crypto(OPENSSL_INIT_NO_ADD_ALL_CIPHERS |
+							OPENSSL_INIT_NO_ADD_ALL_DIGESTS, nullptr);
 		ERR_load_CRYPTO_strings();
-//		OPENSSL_add_all_algorithms_noconf();
+#else
+		OPENSSL_config(nullptr);
+		ERR_load_CRYPTO_strings();
+		OPENSSL_add_all_algorithms_noconf();
+#endif
 		if (!EVP_add_cipher(EVP_aes_256_cbc()) ||
 			!EVP_add_cipher(EVP_aes_256_gcm())) {
 			localOnErr();

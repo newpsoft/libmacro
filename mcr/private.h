@@ -14,15 +14,36 @@
 */
 
 /*! \file
- *  \brief Include all module private.h files.
+ *  \brief The functions in this file are not intended for public use and
+ *  should only be used by Libmacro itself.  All of these functions are
+ *  used to initialize or deinitialize the context in \ref libmacro.h
  *
- *  Convenience for library source files.
+ *  In cases of extreme complexity, please break glass.
  */
 
-#include "mcr/signal/private.h"
-#include "mcr/macro/private.h"
-#include "mcr/standard/private.h"
-#include "mcr/intercept/private.h"
+#ifndef MCR_PRIVATE_H_
+#define MCR_PRIVATE_H_
+
+#include "mcr/globals.h"
+
 #ifdef __cplusplus
-	#include "mcr/extras/private.h"
+extern "C" {
+#endif
+
+struct mcr_context;
+
+extern MCR_API int mcr_base_initialize(struct mcr_context *ctx);
+extern MCR_API int mcr_base_deinitialize(struct mcr_context *ctx);
+extern MCR_API void mcr_base_trim(struct mcr_context *ctx);
+
+extern MCR_API int mcr_standard_initialize(struct mcr_context *ctx);
+extern MCR_API int mcr_standard_deinitialize(struct mcr_context *ctx);
+
+extern MCR_API int mcr_intercept_initialize(struct mcr_context *ctx);
+extern MCR_API int mcr_intercept_deinitialize(struct mcr_context *ctx);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

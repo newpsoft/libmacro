@@ -16,35 +16,33 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/standard/standard.h"
-
-#include <stdio.h>
-#include <string.h>
-
 #include "mcr/libmacro.h"
 
-int mcr_Action_init(void *actPt)
+#include <stdio.h>
+
+void mcr_Action_init(struct mcr_Action *actPt)
 {
-	struct mcr_Action *localPt = actPt;
 	if (actPt) {
-		localPt->modifiers = MCR_MF_NONE;
-		localPt->trigger_flags = MCR_TF_ALL;
+		actPt->modifiers = MCR_MF_NONE;
+		actPt->trigger_flags = MCR_TF_ALL;
 	}
+}
+
+int mcr_Action_init_(void *ptr)
+{
+	mcr_Action_init(ptr);
 	return 0;
 }
 
-bool mcr_Action_receive(void *trigPt, struct mcr_Signal * sigPt,
+bool mcr_Action_receive(struct mcr_Trigger *triggerPt,
+						struct mcr_Signal * sigPt,
 						unsigned int mods)
 {
-	bool isMod = false;
-	struct mcr_Trigger *localPt = trigPt;
-	struct mcr_Action *actPt = mcr_Action_data(localPt);
-	dassert(localPt);
-	if (actPt && localPt->trigger) {
-		MCR_TF_IS_MOD(actPt->modifiers, mods, actPt->trigger_flags,
-					  isMod);
-		if (isMod)
-			return localPt->trigger(localPt, sigPt, mods);
+	dassert(triggerPt);
+	struct mcr_Action *actPt = triggerPt->instance.data_member.data;
+	if (actPt && triggerPt->trigger) {
+		if (mcr_TriggerFlags_match(actPt->trigger_flags, actPt->modifiers, mods))
+			return triggerPt->trigger(triggerPt, sigPt, mods);
 	}
 	return false;
 }

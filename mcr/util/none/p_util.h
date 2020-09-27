@@ -16,4 +16,16 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/util/none/p_mcrstring.h"
+#include "mcr/globals.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define mcr_snprintf snprintf
+extern MCR_API int mcr_casecmp(const char *s1, const char *s2);
+extern MCR_API int mcr_ncasecmp(const char *s1, const char *s2, size_t n);
+
+#ifdef __cplusplus
+}
+#endif

@@ -86,3 +86,11 @@ target_wrapper.sh
 #qml cache
 *.qmlc
 *.jsc
+
+# CMake build files
+CMakeFiles/
+cmake_install.cmake
+*_automoc.cpp
+tst_libmacro
+tst_intercept
+CMakeCache.txt

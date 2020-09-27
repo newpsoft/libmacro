@@ -16,4 +16,25 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/util/linux/p_priv.h"
+#ifndef MCR_UTIL_P_UTIL_H_
+#define MCR_UTIL_P_UTIL_H_
+
+#include "mcr/globals.h"
+#include "mcr/linux/p_defines.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*! Set the user id used when removing root permissions.
+ *
+ *  Linux only
+ *  \ref uid User id to set
+ */
+extern MCR_API void mcr_setuid(int uid);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

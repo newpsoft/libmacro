@@ -23,20 +23,20 @@
 
  Required build tools:
 
- * cmake or qmake
-   * Building with qmake is still supported, but deprecated.  Please contact
-   the creator if you have trouble compiling with qmake.
+ * cmake
    * Optionally built with QtCreator or other IDE using cmake generators.
    Instructions not included.
    * Given build configuration \<BUILD_TYPE\> cmake and cpack may require the
    same command-line switch.
      * cmake: `cmake --config <BUILD_TYPE>`
      * cpack: `cpack -C <BUILD_TYPE>`
- * Qt5, if QT extras are included
-   * CMAKE_PREFIX_PATH must include the base directory of QT libraries for
-   your platform, QT version, and compiler.
-     * Example for windows, QT 5.13.1, using MSVC 2017:
-     "<QT directory>/5.13.1/msvc2017_64"
+	 * May have to set environment variables Qt5_DIR or Qt5Core_DIR, such as
+	 `export Qt5_DIR=<cmake-dir>/Qt5`
+	 * Alternatively one may set CMAKE_PREFIX_PATH where cmake is in the
+	 subdirectory \<CMAKE_PREFIX_PATH\>/lib/cmake/ and Qt5 cmake files are in
+	 the cmake subdirectory.
+	   * Example for windows, using QT 5.13.1 and MSVC 2017:
+	   "CMAKE_PREFIX_PATH=\<QT directory\>/5.13.1/msvc2017_64"
  * All makefile generators and build tools for your environment and target
  * cmake modules
    * Threads: Always required until further notice.
@@ -47,31 +47,27 @@
 
  Supported optional cmake arguments
 
- * MCR_STATIC: Build as static libraries.
+ * Default custom cmake options: `-DMCR_NOEXTRAS=OFF -DMCR_NOQT=OFF
+ -DBUILD_DOC=ON -DBUILD_PACKAGE=ON -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=ON`
+   * For a debug build doc and packaging are turned off by default.
  * MCR_NOEXTRAS: Do not include extra functionality, or any C++.  Not yet
  possible on Windows because of threading.
  * MCR_NOQT: Do not include any QT functionality. Implied by the MCR_NOEXTRAS
  option.
  * BUILD_DOC: Also build doxygen documentation.
- * OPENSSL_ROOT_DIR: Locate the root directory of OpenSSL.
+ * BUILD_PACKAGE: Build packaging materials to use with cpack.
+ * BUILD_SHARED_LIBS: A library that is not shared is static.
+ * BUILD_TESTING: Also build test, development and debugging
+ applications.
+ * OPENSSL_ROOT_DIR: If OpenSSL is installed cmake should find this
+ automatically.
  * CMAKE_BUILD_TYPE: Debug or Release
- * CMAKE_CXX_COMPILER: GCC, Visual Compiler, or Clange executable
- * CMAKE_C_COMPILER: GCC, Visual Compiler, or Clange executable
+ * CMAKE_CXX_COMPILER: GCC, Visual Compiler, or Clang executable
+ * CMAKE_C_COMPILER: GCC, Visual Compiler, or Clang executable
  * CMAKE_INSTALL_PREFIX: Install location
  * CMAKE_PREFIX_PATH: Custom locations for headers, libraries, and QT version
  base directories.
-
- Supported optional qmake arguments
-
- * "CONFIG+=static": Static linking
-   * Static builds must inherit both the Libmacro and SSL licences.  This may
-   require a license statement in source code or EULA.
- * "INCLUDEPATH+=<SSL-Dir>/include": Locate SSL library header files.
- * "LIBS+=-L<SSL-Dir>/lib": Locate SSL libraries
- * "LIBS+=-L<SSL-Dir>/lib/VC/static": Locate static SSL libraries for
- Visual Studio.
-   * All programs that link to this static build will also have SSL definitions
-   without linking to SSL libraries directly.
+ * Qt5_DIR, Qt5Core_DIR, Qt5Test_DIR: Qt cmake directories.
 
 ### Contributing ###
 

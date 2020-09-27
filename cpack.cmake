@@ -1,5 +1,9 @@
 # Build a CPack driven installer package
 if (BUILD_PACKAGE)
+	# Windows package everything to base directory, otherwise lib is separate.
+	if (windows)
+		set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "/")
+	endif (windows)
 	include (InstallRequiredSystemLibraries)
 
 	set (CPACK_RESOURCE_FILE_LICENSE
@@ -19,7 +23,7 @@ if (BUILD_PACKAGE)
 	set (CPACK_PACKAGE_INSTALL_REGISTRY_KEY "Libmacro ${MCR_VER}.${GIT_REVISION}")
 
 	if (WIN32)
-		# There is a bug in NSI that does not handle full unix paths properly. Make
+		# There is a bug in NSIS that does not handle full unix paths properly. Make
 		# sure there is at least one set of four (4) backlasshes.
 	#	set (CPACK_PACKAGE_ICON "${CMake_SOURCE_DIR}/Utilities/Release\\\\InstallIcon.bmp")
 
@@ -34,8 +38,8 @@ if (BUILD_PACKAGE)
 		set (CPACK_NSIS_DISPLAY_NAME "Libmacro")
 		set (CPACK_NSIS_PACKAGE_NAME "Libmacro")
 #		set (CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\MyExecutable.exe")
-		set (CPACK_NSIS_HELP_LINK "http:\\\\\\\\sites.google.com\\\\view\\\\newparadigmsoftware")
-		set (CPACK_NSIS_URL_INFO_ABOUT "http:\\\\\\\\sites.google.com\\\\view\\\\newparadigmsoftware")
+		set (CPACK_NSIS_HELP_LINK "http://sites.google.com/view/newparadigmsoftware")
+		set (CPACK_NSIS_URL_INFO_ABOUT "http://sites.google.com/view/newparadigmsoftware")
 		set (CPACK_NSIS_CONTACT "newparadigmsoftware@gmail.com")
 
 	endif (WIN32)

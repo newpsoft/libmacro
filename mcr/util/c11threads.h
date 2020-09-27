@@ -29,20 +29,20 @@
 #ifndef MCR_UTIL_C11THREADS_H_
 #define MCR_UTIL_C11THREADS_H_
 
-/* NO_THREADS is 'not' defined, which means standard library 'does' have
+/* __STDC_NO_THREADS__ is 'not' defined, which means standard library 'does' have
    threading.  Defined this way causes problems, but such is the way of it. */
 #ifndef __STDC_NO_THREADS__
 
 /* Windows does not have C threads, except maybe some newer MSVC...
-   Just be safe with it. NO_THREADS is not defined, but Windows does not
+   Just be safe with it. __STDC_NO_THREADS__ is not defined, but Windows does not
    have it anyways. */
-#ifdef _WIN32
+#ifdef MCR_PLATFORM_WINDOWS
 	#include "mcr/util/cppthread.h"
 #else
 	#include <threads.h>
 #endif
 
-/* NO_THREADS 'is' defined, which means the standard library 'does not' have
+/* __STDC_NO_THREADS__ 'is' defined, which means the standard library 'does not' have
    threading. */
 #else
 
@@ -81,8 +81,8 @@ typedef pthread_cond_t cnd_t;
 typedef pthread_key_t tss_t;
 typedef pthread_once_t once_flag;
 
-typedef int (*thrd_start_t) (void *);
-typedef void (*tss_dtor_t) (void *);
+typedef int (*thrd_start_t)(void *);
+typedef void (*tss_dtor_t)(void *);
 
 enum {
 	mtx_plain = 0,
@@ -303,7 +303,7 @@ static inline void *tss_get(tss_t key)
 
 /* ---- misc ---- */
 
-static inline void call_once(once_flag * flag, void (*func) (void))
+static inline void call_once(once_flag * flag, void (*func)(void))
 {
 	pthread_once(flag, func);
 }

@@ -36,9 +36,9 @@ if (BUILD_PACKAGE AND windows)
 		COMMENT "Deploying Qt..."
 	)
 	# All QT dependencies will be in the qtimport directory.
-	# Windows shared libraries go together with binaries, otherwise use lib.
+	# Windows package everything to base directory, otherwise lib is separate.
 	if (windows)
-		install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qtimport/" DESTINATION bin)
+		install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qtimport/" DESTINATION /)
 	else ()
 		install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qtimport/" DESTINATION lib)
 	endif (windows)

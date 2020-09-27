@@ -16,17 +16,18 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/intercept/intercept.h"
-
 #include "mcr/libmacro.h"
+#include "mcr/platform.h"
 #include "mcr/private.h"
+
+#include <stdio.h>
 
 void mcr_intercept_reset_modifiers(struct mcr_context *ctx)
 {
 	*mcr_modifiers(ctx) = mcr_intercept_modifiers(ctx);
 }
 
-bool mcr_intercept_is_blockable(struct mcr_context *ctx)
+bool mcr_intercept_blockable(struct mcr_context *ctx)
 {
 	return ctx->intercept.blockable;
 }
@@ -38,7 +39,7 @@ void mcr_intercept_set_blockable(struct mcr_context *ctx, bool enable)
 
 int mcr_intercept_reset(struct mcr_context *ctx)
 {
-	if (mcr_intercept_is_enabled(ctx)) {
+	if (mcr_intercept_enabled(ctx)) {
 		if (mcr_intercept_set_enabled(ctx, false))
 			return mcr_err;
 		return mcr_intercept_set_enabled(ctx, true);
@@ -55,5 +56,7 @@ int mcr_intercept_initialize(struct mcr_context *ctx)
 
 int mcr_intercept_deinitialize(struct mcr_context *ctx)
 {
+	if (mcr_intercept_enabled(ctx))
+		fprintf(stderr, "Error: mcr_context.intercept is enabled on deinitialize. Threading errors may occur.\n");
 	return mcr_intercept_platform_deinitialize(ctx);
 }

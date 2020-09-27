@@ -23,7 +23,7 @@
 #ifndef MCR_STANDARD_TRIGGER_FLAGS_H_
 #define MCR_STANDARD_TRIGGER_FLAGS_H_
 
-#include "mcr/standard/def.h"
+#include "mcr/base/base.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,11 +52,11 @@ enum mcr_TriggerFlags {
 	/*! None of this modifier may be included. */
 	MCR_TF_NONE = 1,
 	/*! Some flag of this modifier must be included, but not all. */
-	MCR_TF_SOME = 1 << 1,
+	MCR_TF_SOME = MCR_TF_NONE << 1,
 	/*! Anything except an exact match */
 	MCR_TF_INEQUAL = MCR_TF_NONE | MCR_TF_SOME,
 	/*! All flags of this modifier must be included, and not any others. */
-	MCR_TF_ALL = 1 << 2,
+	MCR_TF_ALL = MCR_TF_SOME << 1,
 	/*! All or nothing match */
 	MCR_TF_ALL_OR_NOTHING = MCR_TF_NONE | MCR_TF_ALL,
 	/*! At least one mod flag matches */
@@ -64,67 +64,55 @@ enum mcr_TriggerFlags {
 	/*! All flags set (-1 also works) */
 	MCR_TF_ANY = MCR_TF_NONE | MCR_TF_SOME | MCR_TF_ALL,
 	/*! At this number and above may be used to extend flag logic. */
-	MCR_TF_USER = MCR_TF_ANY + 1
+	MCR_TF_USER = MCR_TF_ALL << 1
 };
 /*! Make valid \ref mcr_TriggerFlags from any number */
-#define MCR_TF_mask(number) (MCR_TF_ANY & (number))
+#define MCR_TF_MASK(number) (MCR_TF_ANY & (number))
+
 /*! Remove valid \ref mcr_TriggerFlags from any number, leaving
  *  only user defined flags.
  */
-#define MCR_TF_user_mask(number) ((number) & (~MCR_TF_ANY))
-/*! bool, \ref MCR_TF_NONE */
-#define MCR_TF_IS_NONE(lhs, rhs) (!((lhs) & (rhs)))
-/*! bool, \ref MCR_TF_SOME */
-#define MCR_TF_IS_SOME(lhs, rhs) \
-((lhs) != (rhs) && ((lhs) & (rhs)))
-/*! bool, \ref MCR_TF_INEQUAL */
-#define MCR_TF_IS_INEQUAL(lhs, rhs) ((lhs) != (rhs))
-/*! bool, \ref MCR_TF_ALL */
-#define MCR_TF_IS_ALL(lhs, rhs) ((lhs) == (rhs))
-/*! bool, \ref MCR_TF_ALL_OR_NOTHING */
-#define MCR_TF_IS_ALL_OR_NOTHING(lhs, rhs) \
-(MCR_TF_IS_ALL(lhs, rhs) || MCR_TF_IS_NONE(lhs, rhs))
-/*! bool, \ref MCR_TF_MATCH */
-#define MCR_TF_IS_MATCH(lhs, rhs) (!!((lhs) & (rhs)))
-/*! bool, \ref MCR_TF_ANY */
-#define MCR_TF_IS_ANY(lhs, rhs) true
+#define MCR_TF_USER_MASK(number) ((number) & (~MCR_TF_ANY))
 
 /*! Match modifiers using \ref mcr_TriggerFlags logic.
  *
- *  \param lhs uint Modifiers that must be matched
- *  \param rhs uint Modifiers that are used to match
- *  \param flags \ref mcr_TriggerFlags Logic flags
- *  \param outIsVal bool Return value, true if modifiers match
+ *  \param triggerFlags \ref mcr_TriggerFlags Logic flags
+ *  \param lhs Modifiers that must be matched
+ *  \param rhs Modifiers intercepted, or requesting match
+ *  \return true if matching modifiers
  */
-#define MCR_TF_IS_MOD(lhs, rhs, flags, outIsVal) \
-switch (flags) { \
-case MCR_TF_NONE: \
-	outIsVal = MCR_TF_IS_NONE(lhs, rhs); \
-	break; \
-case MCR_TF_SOME: \
-	outIsVal = MCR_TF_IS_SOME(lhs, rhs); \
-	break; \
-case MCR_TF_INEQUAL: \
-	outIsVal = MCR_TF_IS_INEQUAL(lhs, rhs); \
-	break; \
-case MCR_TF_ALL: \
-	outIsVal = MCR_TF_IS_ALL(lhs, rhs); \
-	break; \
-case MCR_TF_ALL_OR_NOTHING: \
-	outIsVal = MCR_TF_IS_ALL_OR_NOTHING(lhs, rhs); \
-	break; \
-case MCR_TF_MATCH: \
-	outIsVal = MCR_TF_IS_MATCH(lhs, rhs); \
-	break; \
-case MCR_TF_ANY: \
-	outIsVal = MCR_TF_IS_ANY(lhs, rhs); \
-	break; \
-default: \
-	outIsVal = false; \
-	dmsg; \
-	fprintf(stderr, "Error: Invalid " \
-			MCR_STR(enum mcr_TriggerFlags) "\n"); \
-	break; \
+static MCR_INLINE bool mcr_TriggerFlags_match(unsigned int triggerFlags, unsigned int lhsFlags,
+									unsigned int rhsFlags)
+{
+	switch (triggerFlags) {
+	case MCR_TF_NONE:
+		return !(lhsFlags & rhsFlags);
+		break;
+	case MCR_TF_SOME:
+		return lhsFlags != rhsFlags && (lhsFlags & rhsFlags);
+		break;
+	case MCR_TF_INEQUAL:
+		return lhsFlags != rhsFlags;
+		break;
+	case MCR_TF_ALL:
+		return lhsFlags == rhsFlags;
+		break;
+	case MCR_TF_ALL_OR_NOTHING:
+		return lhsFlags == rhsFlags || !(lhsFlags & rhsFlags);
+		break;
+	case MCR_TF_MATCH:
+		return !!(lhsFlags & rhsFlags);
+		break;
+	case MCR_TF_ANY:
+		return true;
+		break;
+	default:
+//		mcr_dmsg;
+//		fprintf(stderr, "Error: Invalid "
+//				MCR_STR(enum mcr_TriggerFlags) "%u\n", triggerFlags);
+		break;
+	}
+	return false;
 }
 
 #ifdef __cplusplus

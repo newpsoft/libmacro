@@ -1,0 +1,45 @@
+implement
+
+wrap instance functions for
+ Signal
+ Trigger
+
+
+
+# Consider #
+dispatch a mcr_Signal copy as a message to the dispatch thread
+ * dispatch message queue?
+
+applyDispatch flag in Macro class (can enable without receiving dispatch?)
+
+properties.h not used
+
+inline dispatch functions
+
+Initialize C-maps and arrays with const static arrays (arrlen for length)
+
+
+intercept.lnx.bit_retrieval => Is it ever used outside of one function?
+
+
+Plugins
+ List all libs in directory
+ Checkbox to load given lib on startup
+   Remember all selected libs
+ Red X for libs failed to load
+ Green Check for libs currently loaded
+ Strikethrough file name if no longer exists
+
+
+Examples
+ C-only example
+   implements
+	 base
+	   generic_dispatcher_pt
+	   mcr_AbsKeyDispatcher
+	   isignal/itrigger registries (maybe itrigger registry not required)
+	 intercept
+	   linux: search grab paths and get a keyboard
+
+
+!!!!! Add bool updateFlag to all mappings that set values to mcr_context

@@ -16,17 +16,34 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#ifndef MCR_STANDARD_WIN_NSTANDARD_H_
-#define MCR_STANDARD_WIN_NSTANDARD_H_
+#ifndef MCR_STANDARD_WINDOWS_P_STANDARD_H_
+#define MCR_STANDARD_WINDOWS_P_STANDARD_H_
 
-#include "mcr/standard/windows/p_def.h"
+#include "mcr/base/base.h"
+#include "mcr/util/windows/p_util.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-MCR_API int mcr_Echo_mouse_flag(size_t echoCode);
-MCR_API int mcr_Echo_set_mouse_flag(size_t echoCode, int mouseEventFlags);
+struct mcr_standard_platform {
+	/*! size_t echo index => mouse event flags */
+	const DWORD *echo_flags;
+	/*! Number of echo keys mapped to flags */
+	size_t echo_flag_count;
+};
+
+/*! \ref mcr_platform
+ */
+extern MCR_API const DWORD mcr_standard_echo_flag_defaults[];
+/*! \ref mcr_platform
+ */
+extern MCR_API size_t mcr_standard_echo_flag_default_count;
+
+/*! Map echo as index to windows mouse event flags.
+ *  \ref mcr_platform
+ */
+MCR_API void mcr_standard_set_echo_flags(struct mcr_context *ctx, const DWORD *mouseEventFlags, size_t count);
 
 #ifdef __cplusplus
 }

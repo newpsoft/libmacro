@@ -23,7 +23,7 @@
 #ifndef MCR_STANDARD_SCROLL_H_
 #define MCR_STANDARD_SCROLL_H_
 
-#include "mcr/standard/def.h"
+#include "mcr/base/base.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +32,7 @@ extern "C" {
 /*! Scroll visible area. */
 struct mcr_Scroll {
 	/*! Magnitude to scroll in each direciton */
-	mcr_Dimensions dm;
+	mcr_Dimensions dimensions;
 };
 
 /*! \pre Signal has data member \ref mcr_Scroll
@@ -40,19 +40,16 @@ struct mcr_Scroll {
  *
  *  \return \ref reterr
  */
-MCR_API int mcr_Scroll_send(struct mcr_Signal *sigPt);
+MCR_API int mcr_Scroll_send(struct mcr_Signal *signalPt);
 /*! \ref mcr_Scroll_send */
-MCR_API int mcr_Scroll_send_data(struct mcr_Scroll *dataPt);
-/* Default init, deinit, compare, copy */
+MCR_API int mcr_Scroll_send_member(struct mcr_Scroll *dataPt, struct mcr_context *ctx);
+/* Default allocate, deallocate, init, deinit, compare, copy */
 
 /*! Signal interface of \ref mcr_Scroll */
 MCR_API struct mcr_ISignal *mcr_iScroll(struct mcr_context *ctx);
-/*! Signal data casted \ref mcr_Scroll * */
+/*! Signal data cast \ref mcr_Scroll * */
 #define mcr_Scroll_data(sigPt) \
-mcr_castpt(struct mcr_Scroll, mcr_Instance_data(sigPt))
-/*! Signal data casted \ref mcr_Scroll * */
-#define MCR_SCROLL_DATA(sig) \
-mcr_castpt(struct mcr_Scroll, (sig).instance.data.data)
+mcr_castpt(struct mcr_Scroll, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }

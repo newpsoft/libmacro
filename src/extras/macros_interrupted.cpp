@@ -18,42 +18,49 @@
 
 #include "mcr/extras/extras.h"
 
+#include <map>
+#include <set>
+
 #include "mcr/libmacro.h"
 
-#include <set>
+#define priv _private
 
 namespace mcr
 {
-MacrosInterrupted::MacrosInterrupted() :
-	_macroMap(new std::map<std::string, Macro *>())
+class MacrosInterruptedPrivate
+{
+	friend class MacrosInterrupted;
+public:
+	std::map<std::string, Macro *> macroMap;
+};
+
+MacrosInterrupted::MacrosInterrupted()
+	: priv(new MacrosInterruptedPrivate)
 {
 }
 
-MacrosInterrupted::MacrosInterrupted(const MacrosInterrupted &copytron) :
-	IInterrupt(), _macroMap(new std::map<std::string, Macro *>())
+MacrosInterrupted::MacrosInterrupted(const MacrosInterrupted &copytron)
+	: priv(new MacrosInterruptedPrivate)
 {
-	auto &myMap = macroMapRef();
-	for (auto &iter: copytron.macroMapRef()) {
-		myMap[iter.first] = iter.second;
-	}
+	*priv = *copytron.priv;
 }
 
 MacrosInterrupted::~MacrosInterrupted()
 {
-	delete &macroMapRef();
+	delete priv;
 }
 
 MacrosInterrupted &MacrosInterrupted::operator=(const MacrosInterrupted
 		&copytron)
 {
 	if (&copytron != this)
-		macroMapRef() = copytron.macroMapRef();
+		*priv = *copytron.priv;
 	return *this;
 }
 
 void MacrosInterrupted::interrupt(const char *target, int type)
 {
-	auto &myMap = macroMapRef();
+	auto &myMap = priv->macroMap;
 	std::set<void *> set;
 	auto iter = myMap.end();
 	if (!target || !mcr_casecmp(target, "all")) {
@@ -72,12 +79,12 @@ void MacrosInterrupted::interrupt(const char *target, int type)
 
 void MacrosInterrupted::map(const char *name, Macro *macroPt)
 {
-	macroMapRef()[name] = macroPt;
+	priv->macroMap[name] = macroPt;
 }
 
 void MacrosInterrupted::unmap(const char *name)
 {
-	auto &myMap = macroMapRef();
+	auto &myMap = priv->macroMap;
 	auto element = myMap.find(name);
 	if (element != myMap.end())
 		myMap.erase(element);
@@ -85,6 +92,6 @@ void MacrosInterrupted::unmap(const char *name)
 
 void MacrosInterrupted::clear()
 {
-	macroMapRef().clear();
+	priv->macroMap.clear();
 }
 }

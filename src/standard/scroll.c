@@ -16,15 +16,16 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/standard/standard.h"
-
 #include "mcr/libmacro.h"
 
-int mcr_Scroll_send(struct mcr_Signal *sigPt)
+int mcr_Scroll_send(struct mcr_Signal *signalPt)
 {
-	dassert(sigPt);
-	struct mcr_Scroll *scrPt = mcr_Scroll_data(sigPt);
-	return scrPt ? mcr_Scroll_send_data(scrPt) : 0;
+	dassert(signalPt);
+	void *ptr = signalPt->instance.data_member.data;
+	if (!ptr)
+		return 0;
+	dassert(signalPt->isignal);
+	return mcr_Scroll_send_member(ptr, signalPt->interface->context);
 }
 
 struct mcr_ISignal *mcr_iScroll(struct mcr_context *ctx)

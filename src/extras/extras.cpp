@@ -16,141 +16,161 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "mcr/extras/extras.h"
-
-#include "mcr/extras/isignal.h"
 #include "mcr/libmacro.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <map>
+#include <vector>
+
+#include "mcr/extras/references/isignal_builder.h"
+
+#ifdef linux
+	#undef linux
+#endif
+
+#include MCR_STR(mcr/extras/MCR_PLATFORM/p_extras.h)
+
+#define priv _private
 
 namespace mcr
 {
+class LibmacroPrivate
+{
+	friend struct Libmacro;
+public:
+	std::map<int, std::vector<Signal>> characters;
+	std::vector<mcr_IDispatcher *> dispatchers;
+};
+
 /* Reduce bloating with private static void reference */
 static std::vector<void *> _registry;
 
 Libmacro::Libmacro(bool enabled)
-	: _context(new mcr_context),
-	  _iCommand(new ISignal<Command>(this)),
-	  _iInterrupt(new ISignal<Interrupt>(this)),
-	  _iStringKey(new ISignal<StringKey>(this)),
-	  _characters(new SignalSetSet),
-	  _enabled(false)
+	: self(), iHidEcho(self.standard.ihid_echo), iKey(self.standard.ikey),
+	  iModifier(self.standard.imodifier), iMoveCursor(self.standard.imove_cursor),
+	  iNoOp(self.standard.inoop), iScroll(self.standard.iscroll), iCommand(this),
+	  iInterrupt(this), iStringKey(this), iAction(self.standard.iaction),
+	  genericDispatcher(this), hidEchoDispatcher(this), keyDispatcher(this),
+	  modifierDispatcher(this), moveCursorDispatcher(this), noOpDispatcher(this),
+	  scrollDispatcher(this), commandDispatcher(this), interruptDispatcher(this),
+	  stringKeyDispatcher(this), _enabled(false), priv(new LibmacroPrivate),
+	  _platform(new LibmacroPlatform(*this))
 {
 	construct(enabled);
 }
 
 Libmacro::Libmacro(const Libmacro &copytron)
-	: _context(new mcr_context),
-	  _iCommand(new ISignal<Command>(this)),
-	  _iInterrupt(new ISignal<Interrupt>(this)),
-	  _iStringKey(new ISignal<StringKey>(this)),
-	  _characters(new SignalSetSet),
-	  _enabled(false)
+	: self(), iHidEcho(self.standard.ihid_echo), iKey(self.standard.ikey),
+	  iModifier(self.standard.imodifier), iMoveCursor(self.standard.imove_cursor),
+	  iNoOp(self.standard.inoop), iScroll(self.standard.iscroll), iCommand(this),
+	  iInterrupt(this), iStringKey(this), iAction(self.standard.iaction),
+	  genericDispatcher(this), hidEchoDispatcher(this), keyDispatcher(this),
+	  modifierDispatcher(this), moveCursorDispatcher(this), noOpDispatcher(this),
+	  scrollDispatcher(this), commandDispatcher(this), interruptDispatcher(this),
+	  stringKeyDispatcher(this), _enabled(false), priv(new LibmacroPrivate),
+	  _platform(new LibmacroPlatform(*this))
 {
-	construct(copytron.isEnabled());
+	construct(copytron.enabled());
 	/* Cannot copy macros from other context */
 }
 
+// Do not throw error in destructor, it may crash program while closing.
 Libmacro::~Libmacro()
 {
+	/* This is supposed to happen in mcr_deinitialize, but some maps seem to
+	 * be deleted early. */
+//	itriggerRegistry.clear();
+//	isignalRegistry.clear();
+
+	/* Deinit before removing from registry. (Libmacro::instance is required.) */
 	SafeString::deinitialize();
 	deinitialize();
-	if (!_registry.empty()) {
-		/* Unregister context that is being removed */
-		for (auto iter = _registry.begin(), endPt = _registry.end(); iter != endPt;
-			 iter++) {
-			/* Assume placed only once */
-			if (*iter == this) {
-				_registry.erase(iter);
-				break;
-			}
-		}
-	}
-	if (isEnabled()) {
+	if (enabled()) {
 		fprintf(stderr, "Error: Libmacro context was not disabled "
 				"before destruction.  "
 				"Threading errors may occur.\n");
-		fprintf(stderr, "Warning: mcr_deinitialize errors are ignored\n");
-		mcr_deinitialize(ptr());
-	} else if (mcr_deinitialize(ptr())) {
-		dmsg;
+		fprintf(stderr, "Warning: mcr_deinitialize errors are ignored.\n");
 	}
-	delete _iCommand;
-	_iCommand = nullptr;
-	delete _iInterrupt;
-	_iInterrupt = nullptr;
-	delete _iStringKey;
-	_iStringKey = nullptr;
-	delete &charactersRef();
-	_characters = nullptr;
-	delete _context;
-	_context = nullptr;
+	if (mcr_deinitialize(&self))
+		dmsg;
+	auto iter = std::find(_registry.begin(), _registry.end(), this);
+	/* Assume placed only once */
+	if (iter != _registry.end())
+		_registry.erase(iter);
+
+	delete priv;
+	delete _platform;
 }
 
 Libmacro &Libmacro::operator=(const Libmacro &copytron)
 {
 	if (&copytron != this)
-		setEnabled(copytron.isEnabled());
+		setEnabled(copytron.enabled());
 	/* Cannot copy macros from other context */
 	return *this;
 }
 
 Libmacro *Libmacro::instance()
 {
-	if (_registry.size() == 0)
-		throw EFAULT;
-	return static_cast<Libmacro *>(_registry.back());
+	mcr_throwif(_registry.size() == 0, EFAULT);
+	return reinterpret_cast<Libmacro *>(_registry.back());
 }
 
 void Libmacro::setEnabled(bool val)
 {
 	if (val != _enabled) {
 		_enabled = val;
-		mcr_Dispatcher_set_enabled_all(ptr(), val);
+		mcr_dispatch_set_enabled_all(&self, val);
 		/* Operation not permitted if not elevated permissions */
-		if (mcr_intercept_set_enabled(ptr(), val) &&
+		if (mcr_intercept_set_enabled(&self, val) &&
 			mcr_err != EPERM) {
-			throw mcr_err;
+			throwError(MCR_LINE, mcr_read_err());
 		}
 	}
 }
 
 size_t Libmacro::characterCount() const
 {
-	return charactersRef().size();
+	return priv->characters.size();
 }
 
 size_t Libmacro::characterCount(int c) const
 {
-	return characterRef(c).size();
+	auto found = priv->characters.find(c);
+	if (found == priv->characters.end())
+		return 0;
+	return found->second.size();
 }
 
 Signal *Libmacro::characterData(int c) const
 {
-	auto &chara = characterRef(c);
-	if (chara.empty())
+	auto found = priv->characters.find(c);
+	if (found == priv->characters.end())
 		return nullptr;
-	return &characterRef(c).front();
+	return &found->second.front();
 }
 
 void Libmacro::setCharacterKey(int c, int key, long msecDelay,
 							   bool shiftFlag)
 {
-	Signal delaySig(iNoOp()), keySig(iKey());
-	SignalRef ref;
+	Signal delaySig(&iNoOp), keySig(&iKey);
+	SignalBuilder ref;
 	size_t i;
 	/* Shift: 2 keys to press */
 	int gearShift = shiftFlag ? 2 : 1;
-	auto &chara = characterRef(c);
 	mcr_Key *kPt;
 	/* With shift will be: down, pause, down, pause, up, pause, up */
-	chara.resize(shiftFlag ? 7 : 3);
-	for (i = 0; i < chara.size(); i++) {
-		ref = chara[i];
+	std::vector<Signal> insert(shiftFlag ? 7 : 3);
+	for (i = 0; i < insert.size(); i++) {
+		ref.build(&*insert[i]);
 		/* First set ISignal and instance data. Odd numbers are delays */
 		if (i % 2) {
-			ref.build(iNoOp()).mkdata();
-			mcr_NoOp_set_all(ref.data<mcr_NoOp>(), msecDelay / 1000, msecDelay % 1000);
+			ref.build(&iNoOp).mkdata();
+			ref.data<mcr_NoOp>()->seconds = msecDelay / 1000;
+			ref.data<mcr_NoOp>()->milliseconds = msecDelay % 1000;
 		} else {
-			kPt = ref.build(iKey()).mkdata().data<mcr_Key>();
+			kPt = ref.build(&iKey).mkdata().data<mcr_Key>();
 			kPt->key = key;
 			if (gearShift) {
 				--gearShift;
@@ -161,20 +181,20 @@ void Libmacro::setCharacterKey(int c, int key, long msecDelay,
 		}
 	}
 	if (shiftFlag) {
-		gearShift = mcr_Key_modifier_key(ptr(), MCR_SHIFT);
-		chara[0].data<mcr_Key>()->key = gearShift;
-		chara[6].data<mcr_Key>()->key = gearShift;
+		gearShift = mcr_modifier_key(&self, MCR_SHIFT);
+		insert[0].data<mcr_Key>()->key = gearShift;
+		insert[6].data<mcr_Key>()->key = gearShift;
 	}
+	priv->characters[c] = insert;
 }
 
 void Libmacro::setCharacterDelays(mcr_NoOp delayValue)
 {
-	auto &chara = charactersRef();
-	SignalRef siggy;
-	mcr_ISignal *isigPt = iNoOp();
-	for (auto &i: chara) {
-		for (auto &iter: i) {
-			siggy = iter.ptr();
+	SignalBuilder siggy;
+	mcr_ISignal *isigPt = &iNoOp;
+	for (auto &i: priv->characters) {
+		for (auto &iter: i.second) {
+			siggy.build(&*iter);
 			if (siggy.isignal() == isigPt)
 				*siggy.mkdata().data<mcr_NoOp>() = delayValue;
 		}
@@ -183,78 +203,113 @@ void Libmacro::setCharacterDelays(mcr_NoOp delayValue)
 
 void Libmacro::removeCharacter(int c)
 {
-	auto &chara = charactersRef();
-	size_t sizeC = static_cast<size_t>(c);
-	if (c < 0)
-		throw EINVAL;
-	if (sizeC < chara.size())
-		chara[sizeC].clear();
+	auto found = priv->characters.find(c);
+	if (found != priv->characters.end())
+		priv->characters.erase(c);
 }
 
 void Libmacro::trimCharacters()
 {
-	auto &chara = charactersRef();
-	size_t i;
-	if (!chara.size())
-		return;
-	/* Stop at last index with elements */
-	for (i = chara.size() - 1; i && !chara[i].size(); i--);
-
-	/* i is either 0(with or without elements), or index has elements */
-	if (chara[i].size()) {
-		/* Index found with elements, all past this are empty */
-		/* For debugging make sure either this is already last element,
-		 * or next element is empty */
-		dassert(chara.size() == i + 1 ||
-				!chara[i + 1].size());
-		chara.resize(i + 1);
-	} else {
-		/* At index 0, and has no elements. */
-		chara.clear();
+	for (auto iter = priv->characters.rbegin(); iter != priv->characters.rend();
+		 iter++) {
+		if (iter->second.empty()) {
+			priv->characters.erase(iter.base());
+		} else {
+			iter->second.shrink_to_fit();
+		}
 	}
 }
 
 void Libmacro::clearCharacters()
 {
-	charactersRef().clear();
+	priv->characters.clear();
+}
+
+mcr_IDispatcher *Libmacro::dispatcher(size_t id) const
+{
+	return id < priv->dispatchers.size() ? priv->dispatchers[id] : nullptr;
+}
+
+void Libmacro::setDispatcher(size_t id, mcr_IDispatcher *idispatcherPt)
+{
+	if (id == (size_t)~0) {
+		self.base.generic_dispatcher_pt = idispatcherPt;
+	} else {
+		if (id >= priv->dispatchers.size())
+			priv->dispatchers.resize(id + 1, nullptr);
+		priv->dispatchers[id] = idispatcherPt;
+		if (mcr_dispatch_set_dispatchers(&self, &priv->dispatchers.front(),
+										 priv->dispatchers.size()))
+			throw mcr_read_err();
+	}
+}
+
+void Libmacro::clearDispatchers()
+{
+	if (mcr_dispatch_set_dispatchers(&self, NULL, 0))
+		throw mcr_read_err();
+	priv->dispatchers.clear();
 }
 
 void Libmacro::construct(bool enabled)
 {
-	if (mcr_initialize(ptr()))
-		throw mcr_err;
-	if (mcr_load_contracts(ptr())) {
-		mcr_deinitialize(ptr());
-		throw mcr_err;
-	}
-	mcr_trim(ptr());
-	/* Register */
+	mcr_ISignal *isignals[] = {
+		&iHidEcho, &iKey, &iModifier, &iMoveCursor, &iNoOp, &iScroll,
+		&*iCommand, &*iInterrupt, &*iStringKey
+	};
+	mcr_IDispatcher *idispatchers[] = {
+		&hidEchoDispatcher.self.idispatcher, &keyDispatcher.self.idispatcher,
+		&modifierDispatcher.self.idispatcher, &moveCursorDispatcher.self.idispatcher,
+		&noOpDispatcher.self.idispatcher, &scrollDispatcher.self.idispatcher,
+		&commandDispatcher.self.idispatcher, &interruptDispatcher.self.idispatcher,
+		&stringKeyDispatcher.self.idispatcher
+	};
+	/* Register completed Libmacro context, remove on dtor */
 	_registry.push_back(this);
-	ISignal<Command>::cast(_iCommand)->registerType();
-	ISignal<Interrupt>::cast(_iInterrupt)->registerType();
-	ISignal<StringKey>::cast(_iStringKey)->registerType();
+	if (mcr_initialize(&self))
+		throwError(MCR_LINE, mcr_read_err());
+	self.base.isignal_registry_pt = &*isignalRegistry;
+	self.base.itrigger_registry_pt = &*itriggerRegistry;
+	/* Types and contract */
+	if (mcr_load_contracts(&self)) {
+		dmsg;
+		mcr_deinitialize(&self);
+		throwError(MCR_LINE, mcr_read_err());
+	}
+	registerSignal<Command>(iCommand.build<Command>());
+	registerSignal<Interrupt>(iInterrupt.build<Interrupt>());
+	registerSignal<StringKey>(iStringKey.build<StringKey>());
+
 	initialize();
 	SafeString::initialize();
 	setEnabled(enabled);
 	if (!Interrupt::defaultInterrupt)
 		Interrupt::defaultInterrupt = &macrosInterrupted;
+
+	setGenericDispatcher(&genericDispatcher.self.idispatcher, true);
+	for (size_t i = arrlen(idispatchers); i--;) {
+		setDispatcher(isignals[i], idispatchers[i], true);
+	}
+	mcr_trim(&self);
 }
 
 void Libmacro::setCharacter(int c, const Signal *valueArray, size_t count)
 {
-	auto &chara = charactersRef();
-	size_t sizeC = static_cast<size_t>(c), i;
-	/* Count without array is a logical error */
-	if (c < 0 || (count && !valueArray))
-		throw EINVAL;
-	if (sizeC >= chara.size())
-		chara.resize(sizeC + 1);
-	/* If no count, shorthand array to empty */
-	if (!count)
-		valueArray = nullptr;
-	chara[sizeC] = SignalSet();
-	for (i = 0; i < count; i++) {
-		chara[sizeC].push_back(valueArray[i]);
+	mcr_throwif(count && !valueArray, EINVAL);
+	if (!count) {
+		removeCharacter(c);
+		return;
+	}
+	auto found = priv->characters.find(c);
+	if (found == priv->characters.end()) {
+		auto insertSuccess = priv->characters.insert({c, {}});
+		mcr_throwif(!insertSuccess.second, errno);
+		found = insertSuccess.first;
+	}
+	auto &chara = found->second;
+	chara.resize(count);
+	for (size_t i = 0; i < count; i++) {
+		chara[i] = valueArray[i];
 	}
 }
 }

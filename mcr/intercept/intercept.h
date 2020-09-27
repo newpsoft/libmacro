@@ -23,39 +23,13 @@
 #ifndef MCR_INTERCEPT_INTERCEPT_H_
 #define MCR_INTERCEPT_INTERCEPT_H_
 
-#include "mcr/intercept/def.h"
+#include "mcr/standard/standard.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*! Set known modifiers from hardware values. */
-MCR_API void mcr_intercept_reset_modifiers(struct mcr_context *ctx);
-/*! \ref mcr_intercept.blockable */
-MCR_API bool mcr_intercept_is_blockable(struct mcr_context *ctx);
-/*! \ref mcr_intercept.blockable */
-MCR_API void mcr_intercept_set_blockable(struct mcr_context *ctx, bool enable);
-/*! If currently enabled this will reset all current hardware intercepts. */
-MCR_API int mcr_intercept_reset(struct mcr_context *ctx);
-
-/* platform */
-/*! Is any hardware intercepting.
- *
- *  \ref mcr_is_platform
- */
-MCR_API bool mcr_intercept_is_enabled(struct mcr_context *ctx);
-/*! Enable intercept from hardware.  Refer to platform functions to set which
- *  hardware to intercept.
- *
- *  \ref mcr_is_platform
- */
-MCR_API int mcr_intercept_set_enabled(struct mcr_context *ctx, bool enable);
-/*! Modifiers reported by hardware or OS.
- *
- *  \ref mcr_is_platform
- */
-MCR_API unsigned int mcr_intercept_modifiers(struct mcr_context *ctx);
-
+struct mcr_intercept_platform;
 /*! Intercept module
  *
  *  In cases of extreme complexity, please break glass.
@@ -66,8 +40,35 @@ struct mcr_intercept {
 	 *  Default false for OS compatibility. */
 	bool blockable;
 	/*! All data reserved for platform definitions */
-	void *platform;
+	struct mcr_intercept_platform *platform_pt;
 };
+
+/*! Set known modifiers from hardware values. */
+MCR_API void mcr_intercept_reset_modifiers(struct mcr_context *ctx);
+/*! \ref mcr_intercept.blockable */
+MCR_API bool mcr_intercept_blockable(struct mcr_context *ctx);
+/*! \ref mcr_intercept.blockable */
+MCR_API void mcr_intercept_set_blockable(struct mcr_context *ctx, bool enable);
+/*! If currently enabled this will reset all current hardware intercepts. */
+MCR_API int mcr_intercept_reset(struct mcr_context *ctx);
+
+/* platform */
+/*! Is any hardware intercepting.
+ *
+ *  \ref mcr_platform
+ */
+MCR_API bool mcr_intercept_enabled(struct mcr_context *ctx);
+/*! Enable intercept from hardware.  Refer to platform functions to set which
+ *  hardware to intercept.
+ *
+ *  \ref mcr_platform
+ */
+MCR_API int mcr_intercept_set_enabled(struct mcr_context *ctx, bool enable);
+/*! Modifiers reported by hardware or OS.
+ *
+ *  \ref mcr_platform
+ */
+MCR_API unsigned int mcr_intercept_modifiers(struct mcr_context *ctx);
 
 #ifdef __cplusplus
 }

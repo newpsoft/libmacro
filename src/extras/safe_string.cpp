@@ -22,13 +22,9 @@ namespace mcr
 {
 SafeString::SafeString(const SafeString &copytron)
 	: _cryptic(copytron.cryptic()), _encrypted(nullptr), _encryptedBufferSize(0),
-	  _encryptedBytes(0),
-	  _keyProvider(copytron.keyProvider()), _lenMem(0), _plain(nullptr),
-	  _plainBufferSize(0),
-	  _stateless(copytron.stateless())
+	  _encryptedBytes(0), _keyProvider(copytron.keyProvider()), _iv {0}, _lenMem(0),
+	  _plain(nullptr), _plainBufferSize(0), _stateless(copytron.stateless()), _tag {0}
 {
-	std::memset(_iv, 0, sizeof(_iv));
-	std::memset(_tag, 0, sizeof(_tag));
 	if (cryptic())
 		resetIv();
 	setText(copytron.text());
@@ -47,14 +43,18 @@ SafeString::~SafeString()
 int SafeString::compare(const SafeString &rhs) const
 {
 	int cmp;
-	std::string lMem, rMem;
+	String lMem, rMem;
+	size_t len;
 	if (&rhs == this)
 		return 0;
 	if ((cmp = MCR_CMP(cryptic(), rhs.cryptic())))
 		return cmp;
 	lMem = text();
 	rMem = rhs.text();
-	return lMem.compare(rMem);
+	len = lMem.length();
+	if (rMem.length() > len)
+		len = rMem.length();
+	return strncmp(*lMem, *rMem, len);
 }
 
 void SafeString::setCryptic(bool val)
@@ -67,7 +67,7 @@ void SafeString::setCryptic(bool val)
 
 void SafeString::setKeyProvider(IKeyProvider *provider)
 {
-	std::string mem;
+	String mem;
 	if (provider != _keyProvider) {
 		mem = text();
 		clear();
@@ -81,7 +81,7 @@ void SafeString::setKeyProvider(IKeyProvider *provider)
 
 void SafeString::setIv(unsigned char *iv)
 {
-	std::string mem;
+	String mem;
 	if (cryptic()) {
 		mem = text();
 		std::memcpy(_iv, iv, sizeof(_iv));
@@ -93,19 +93,19 @@ void SafeString::setIv(unsigned char *iv)
 
 void SafeString::resetIv()
 {
-	std::string mem;
+	String mem;
 	if (cryptic()) {
 		mem = text();
 		initializer(_iv);
 		setText(mem);
 	} else {
-		std::memset(_iv, 0, sizeof(_iv));
+		ZERO(_iv);
 	}
 }
 
 void SafeString::setStateless(bool val)
 {
-	std::string mem;
+	String mem;
 	if (val != stateless()) {
 		if (cryptic()) {
 			mem = text();
@@ -212,6 +212,6 @@ void SafeString::clear()
 		_plain = nullptr;
 	}
 	if (cryptic())
-		std::memset(_tag, 0, sizeof(_tag));
+		ZERO(_tag);
 }
 }

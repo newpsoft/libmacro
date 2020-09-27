@@ -22,33 +22,36 @@
 #ifndef MCR_EXTRAS_MACROS_INTERRUPTED_H_
 #define MCR_EXTRAS_MACROS_INTERRUPTED_H_
 
-#include "mcr/extras/model.h"
-#include "mcr/extras/iinterrupt.h"
+#include "mcr/extras/signals/interrupt.h"
 
 namespace mcr
 {
-class MCR_API MacrosInterrupted : public IInterrupt {
+class IInterrupt;
+/*! Non-exportable members */
+class MacrosInterruptedPrivate;
+class MCR_API MacrosInterrupted : public IInterrupt
+{
+	friend class MacrosInterruptedPrivate;
 public:
 	MacrosInterrupted();
 	MacrosInterrupted(const MacrosInterrupted &);
 	virtual ~MacrosInterrupted() override;
 	MacrosInterrupted &operator =(const MacrosInterrupted &copytron);
 
+	virtual int type() const override { return 0; }
+	virtual void setType(int) override {}
+	virtual const char *target() const override { return nullptr; }
+	virtual void setTarget(const char *) override {}
+	virtual IInterrupt *iinterrupt() const override { return nullptr; }
+	virtual void setIInterrupt(IInterrupt *) override {}
 	virtual void interrupt(const char *target, int type) override;
 
-	void map(const char *name, Macro *macroPt);
-	inline void map(const std::string &name, Macro *macroPt)
-	{
-		map(name.c_str(), macroPt);
-	}
-	void unmap(const char *name);
-	void clear();
+	virtual void map(const char *name, Macro *macroPt);
+	virtual void unmap(const char *name);
+	virtual void clear();
 private:
-	void *_macroMap;
-	inline std::map<std::string, Macro *> &macroMapRef() const
-	{
-		return *static_cast<std::map<std::string, Macro *> *>(_macroMap);
-	}
+	/* non-export */
+	MacrosInterruptedPrivate *_private;
 };
 }
 

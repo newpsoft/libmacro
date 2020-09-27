@@ -1,10 +1,6 @@
-if (CMAKE_BUILD_TYPE MATCHES "^[Rr]elease")
-	option(BUILD_TESTING "Also build tests." ON)
-else ()
-	option(BUILD_TESTING "Also build tests." OFF)
-endif ()
+option(BUILD_TESTING "Also build test, development, and debugging applications." ON)
 if (BUILD_TESTING)
-	enable_testing()
+	enable_testing(true)
 	include(CTest)
 
 	if (TARGET tst_libmacro)

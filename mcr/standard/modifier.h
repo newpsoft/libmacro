@@ -23,7 +23,7 @@
 #ifndef MCR_STANDARD_MODIFIER_H_
 #define MCR_STANDARD_MODIFIER_H_
 
-#include "mcr/standard/def.h"
+#include "mcr/base/base.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,19 +39,20 @@ struct mcr_Modifier {
 	 *  will change the state from what it currently is, otherwise it is
 	 *  released */
 	enum mcr_ApplyType apply;
+	/*! If true, modifiers will only be set internally, and no keys sent to
+	 *  the system.
+	 *  \todo not used */
+	bool internal_flag;
 };
 
-/*! Set initial values */
-MCR_API void mcr_Modifier_set_all(struct mcr_Modifier *modPt,
-								  unsigned int modifiers,
-								  enum mcr_ApplyType applyType);
 /*! \pre Signal data is \ref mcr_Modifier
  *  \brief Modify internal modifiers
  *
  *  \return \ref reterr
  */
-MCR_API int mcr_Modifier_send(struct mcr_Signal *sigPt);
-/* Default init, deinit, compare, and copy */
+MCR_API int mcr_Modifier_send(struct mcr_Signal *signalPt);
+MCR_API void mcr_Modifier_send_member(struct mcr_Modifier *modPt, struct mcr_context *ctx);
+/* Default allocate, deallocate, init, deinit, compare, and copy */
 
 /*! Modify an instance of \ref mcr_Modifier
  *
@@ -64,11 +65,8 @@ MCR_API void mcr_Modifier_modify(struct mcr_Modifier *modPt,
 /*! Get the signal interface for \ref mcr_Modifier */
 MCR_API struct mcr_ISignal *mcr_iModifier(struct mcr_context *ctx);
 /*! Get modifier data of a signal */
-#define mcr_Modifier_data( sigPt ) \
-mcr_castpt(struct mcr_Modifier, mcr_Instance_data(sigPt))
-/*! Get modifier data of a signal */
-#define MCR_MODIFIER_DATA(signal) \
-mcr_castpt(struct mcr_Modifier, (signal).instance.data->data)
+#define mcr_Modifier_data(sigPt) \
+mcr_castpt(struct mcr_Modifier, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }
