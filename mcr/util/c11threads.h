@@ -29,19 +29,17 @@
 #ifndef MCR_UTIL_C11THREADS_H_
 #define MCR_UTIL_C11THREADS_H_
 
-/* __STDC_NO_THREADS__ is 'not' defined, which means standard library 'does' have
-   threading.  Defined this way causes problems, but such is the way of it. */
-#ifndef __STDC_NO_THREADS__
-
 /* Windows does not have C threads, except maybe some newer MSVC...
    Just be safe with it. __STDC_NO_THREADS__ is not defined, but Windows does not
    have it anyways. */
 #ifdef MCR_PLATFORM_WINDOWS
 	#include "mcr/util/cppthread.h"
 #else
-	#include <threads.h>
-#endif
 
+/* __STDC_NO_THREADS__ is 'not' defined, which means standard library 'does' have
+   threading.  Defined this way causes problems, but such is the way of it. */
+#ifndef __STDC_NO_THREADS__
+#include <threads.h>
 /* __STDC_NO_THREADS__ 'is' defined, which means the standard library 'does not' have
    threading. */
 #else
@@ -313,4 +311,5 @@ static inline void call_once(once_flag * flag, void (*func)(void))
 #endif
 
 #endif	/* __STDC_NO_THREADS__ */
+#endif  /* MCR_PLATFORM_WINDOWS */
 #endif	/* MCR_UTIL_C11THREADS_H_ */

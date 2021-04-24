@@ -133,8 +133,11 @@ void Macro::setInterruptor(Interrupt val)
 			if (val == INTERRUPT_ALL) {
 				dequeue(INTERRUPT_ALL);
 				std::this_thread::yield();
-				if (running())
+				if (running()) {
 					std::thread(&Macro::resetThread, this).detach();
+				} else {
+					_interruptor = CONTINUE;
+				}
 			}
 		}
 		callProperty(interruptorChanged);
@@ -317,14 +320,20 @@ void Macro::run()
 		}
 		// Only dequeue if not sticky or have extras
 		if (!sticky() || _queued > 0 || threadCount() > 1) {
-			if (!_queued || decQueued() == 0)
-				break;
+			if (_queued)
+				decQueued();
 		}
-		for (auto &iter: signals) {
-			mcr_send(&*context(), &*iter);
+		for (size_t i = 0; i < signals.size(); i++) {
+			mcr_send(&*context(), &*signals[i]);
 			/* Go to interrupt check phase */
 			if (interruptor() >= INTERRUPT)
 				continue;
+		}
+		if (noQueued()) {
+			// TODO: May end sticky thread if another thread runs concurrent.
+			// Maybe if sticky we cannot have multiple threads?
+			if (!sticky() || _threadCount > 1)
+				break;
 		}
 		onCanPause();
 	} while (true);
@@ -485,13 +494,14 @@ void Macro::clearThreads(Interrupt clearType, bool stickyInterrupt)
 
 void Macro::resetThread()
 {
+	Interrupt prev = _interruptor;
 	dequeue(INTERRUPT_ALL);
 	callProperty(interruptorChanged);
 	callProperty(enabledChanged);
 	std::this_thread::yield();
 	if (running())
 		clearThreads(INTERRUPT_ALL, false);
-	if (enabled())
+	if (prev != DISABLE)
 		setInterruptor(CONTINUE);
 }
 

@@ -298,21 +298,21 @@ public:
 
 	static QVariant cryptic(const SerSignal &container)
 	{
-		return container.empty() ? false : container.data<ICommand>()->cryptic();
+		return container.empty() ? false : container.data<Command>()->cryptic();
 	}
 	static void setCryptic(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<ICommand>()->setCryptic(val.toBool());
+		container.mkdata().data<Command>()->setCryptic(val.toBool());
 	}
 	static QVariant file(const SerSignal &container)
 	{
 		return QString::fromStdString(container.empty() ? "" :
-									  *container.data<ICommand>()->file());
+									  *container.data<Command>()->file());
 	}
 	static void setFile(SerSignal &container, const QVariant &val)
 	{
 		QString f = val.toString();
-		container.mkdata().data<ICommand>()->setFile(f.toUtf8().constData());
+		container.mkdata().data<Command>()->setFile(f.toUtf8().constData());
 	}
 	static QVariant args(const SerSignal &container);
 	static void setArgs(SerSignal &container, const QVariant &val);
@@ -325,20 +325,20 @@ public:
 
 	static QVariant type(const SerSignal &container)
 	{
-		return container.empty() ? 0 : container.data<IInterrupt>()->type();
+		return container.empty() ? 0 : container.data<Interrupt>()->type();
 	}
 	static void setType(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<IInterrupt>()->setType(val.toInt());
+		container.mkdata().data<Interrupt>()->setType(val.toInt());
 	}
 	static QVariant target(const SerSignal &container)
 	{
-		return container.empty() ? "" : container.data<IInterrupt>()->target();
+		return container.empty() ? "" : container.data<Interrupt>()->target();
 	}
 	static void setTarget(SerSignal &container, const QVariant &val)
 	{
 		QString t = val.toString();
-		container.mkdata().data<IInterrupt>()->setTarget(t.toUtf8().constData());
+		container.mkdata().data<Interrupt>()->setTarget(t.toUtf8().constData());
 	}
 };
 
@@ -349,37 +349,37 @@ public:
 
 	static QVariant cryptic(const SerSignal &container)
 	{
-		return container.empty() ? false : container.data<IStringKey>()->cryptic();
+		return container.empty() ? false : container.data<StringKey>()->cryptic();
 	}
 	static void setCryptic(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<IStringKey>()->setCryptic(val.toBool());
+		container.mkdata().data<StringKey>()->setCryptic(val.toBool());
 	}
 	static QVariant sec(const SerSignal &container)
 	{
-		return container.empty() ? 0 : container.data<IStringKey>()->seconds();
+		return container.empty() ? 0 : container.data<StringKey>()->seconds();
 	}
 	static void setSec(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<IStringKey>()->setSeconds(val.toInt());
+		container.mkdata().data<StringKey>()->setSeconds(val.toInt());
 	}
 	static QVariant msec(const SerSignal &container)
 	{
-		return container.empty() ? 0 : container.data<IStringKey>()->milliseconds();
+		return container.empty() ? 0 : container.data<StringKey>()->milliseconds();
 	}
 	static void setMsec(SerSignal &container, const QVariant &val)
 	{
-		container.mkdata().data<IStringKey>()->setMilliseconds(val.toInt());
+		container.mkdata().data<StringKey>()->setMilliseconds(val.toInt());
 	}
 	static QVariant text(const SerSignal &container)
 	{
 		return QString::fromStdString(container.empty() ? "" :
-									  *container.data<IStringKey>()->text());
+									  *container.data<StringKey>()->text());
 	}
 	static void setText(SerSignal &container, const QVariant &val)
 	{
 		QString f = val.toString();
-		container.mkdata().data<IStringKey>()->setText(f.toUtf8().constData());
+		container.mkdata().data<StringKey>()->setText(f.toUtf8().constData());
 	}
 };
 }

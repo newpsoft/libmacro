@@ -210,12 +210,14 @@ void Libmacro::removeCharacter(int c)
 
 void Libmacro::trimCharacters()
 {
-	for (auto iter = priv->characters.rbegin(); iter != priv->characters.rend();
-		 iter++) {
+	for (auto iter = priv->characters.begin(); iter != priv->characters.end();) {
 		if (iter->second.empty()) {
-			priv->characters.erase(iter.base());
+			priv->characters.erase(iter);
+			// Map erase iterator is unstable
+			iter = priv->characters.begin();
 		} else {
 			iter->second.shrink_to_fit();
+			++iter;
 		}
 	}
 }

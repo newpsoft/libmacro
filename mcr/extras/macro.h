@@ -263,6 +263,8 @@ protected:
 	{
 		if (_queued > 0) {
 			--_queued;
+			if (_queued < 0)
+				_queued = 0;
 			callProperty(queuedChanged);
 		}
 		return _queued;
@@ -274,6 +276,12 @@ protected:
 			callProperty(queuedChanged);
 		}
 		return _queued;
+	}
+	inline bool noQueued()
+	{
+		if (_queued < 0)
+			_queued = 0;
+		return _queued <= 0;
 	}
 	// \todo threadMax, interruptor, and enabled changed property
 	/*! Will not notify property changed. */

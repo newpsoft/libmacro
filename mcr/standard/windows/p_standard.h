@@ -22,6 +22,11 @@
 #include "mcr/base/base.h"
 #include "mcr/util/windows/p_util.h"
 
+/*! Ignore this input because it is virtual.  Use mcr_send to dispatch and
+ *  possibly block before the member is sent.
+ */
+#define MCR_WM_IGNORE 0x1482
+
 #ifdef __cplusplus
 extern "C" {
 #endif

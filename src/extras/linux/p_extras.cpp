@@ -174,7 +174,7 @@ String LibmacroPlatform::grab(size_t index) const
 void LibmacroPlatform::setGrab(size_t index, const String &value, bool updateFlag)
 {
 	mcr_throwif(index >= priv->grabs.size(), EINVAL);
-	priv->grabs[index] = value;
+	priv->grabs[index] = *value;
 	priv->grabPaths[index] = priv->grabs[index].c_str();
 	if (updateFlag)
 		updateGrabs();
@@ -185,9 +185,10 @@ void LibmacroPlatform::updateGrabs()
 	if (priv->grabPaths.size()) {
 		if (mcr_intercept_set_grabs(&**_context, &priv->grabPaths.front(), priv->grabPaths.size()))
 			throwError(MCR_LINE, mcr_read_err());
+	} else {
+		if (mcr_intercept_set_grabs(&**_context, nullptr, 0))
+			throwError(MCR_LINE, mcr_read_err());
 	}
-	if (mcr_intercept_set_grabs(&**_context, nullptr, 0))
-		throwError(MCR_LINE, mcr_read_err());
 }
 
 void LibmacroPlatform::clear()

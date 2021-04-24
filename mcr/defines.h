@@ -240,15 +240,10 @@ extern "C" {
 		/*! static_cast for C++ and regular cast for C.  Macros are not affected
 		*   by extern "C". Designed for macros C/C++ interoperability. */
 		#define mcr_cast(T, obj) static_cast<T>(obj)
-		/*! reinterpret_cast as a pointer for C++ and regular cast for C.
-		*   Macros are not affected by extern "C". Designed for macros C/C++
-		*   interoperability. */
-		#define mcr_castpt(T, obj) reinterpret_cast<T *>(obj)
 		/*! nullptr for C++ and NULL for C */
 		#define mcr_null nullptr
 	#else
 		#define mcr_cast(T, obj) ((T)(obj))
-		#define mcr_castpt(T, obj) ((T *)(obj))
 		#define mcr_null NULL
 	#endif
 #endif

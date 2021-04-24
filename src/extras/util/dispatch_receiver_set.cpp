@@ -92,7 +92,8 @@ void DispatchReceiverSet::remove(void *remReceiver)
 	mcr_DispatchReceiver receiver = { remReceiver, nullptr };
 	auto &receivers = priv->receivers;
 	auto range = std::equal_range(receivers.begin(), receivers.end(), receiver, dispatch_receiver_less());
-	if (range.second != receivers.end()) {
+	if (range.first != receivers.end()) {
+		apply(nullptr, 0);
 		receivers.erase(range.first, range.second);
 		apply();
 	}

@@ -31,12 +31,17 @@
 extern "C" {
 #endif
 
-/*! Enter dispatch critical section.  Do not modify dispatchers or receivers
- *  in the middle of dispatch.
+/*! Enter a dispatch critical section.  This will try to lock many times, but
+ *  a successful lock is not guaranteed.
  *
- *  \return \ref reterr
+ *  \return \ref reterr 0 for successful lock
  */
 MCR_API int mcr_dispatch_lock(struct mcr_context *ctx);
+/*! Attempt to enter a dispatch critical section.  Return an error if not successful.
+ *
+ *  \return \ref reterr 0 for successful lock
+ */
+MCR_API int mcr_dispatch_trylock(struct mcr_context *ctx);
 /*! Exit dispatch critical section.  Do not modify dispatchers or receivers
  *  in the middle of dispatch.
  *
@@ -58,9 +63,11 @@ MCR_API bool mcr_dispatch(struct mcr_context *ctx, struct mcr_Signal *sigPt);
  *
  *  Will lock dispatch in this function.
  *  \return \ref reterr */
-MCR_API int mcr_dispatch_set_dispatchers(struct mcr_context *ctx, struct mcr_IDispatcher **dispatchers, size_t count);
+MCR_API int mcr_dispatch_set_dispatchers(struct mcr_context *ctx,
+		struct mcr_IDispatcher **dispatchers, size_t count);
 /*! Set \ref mcr_base.generic_dispatcher_pt */
-MCR_API void mcr_dispatch_set_generic_dispatcher(struct mcr_context *ctx, struct mcr_IDispatcher *dispatcherPt);
+MCR_API void mcr_dispatch_set_generic_dispatcher(struct mcr_context *ctx,
+		struct mcr_IDispatcher *dispatcherPt);
 
 /*! Get the number of registered dispatchers, including null values
  *
@@ -73,7 +80,7 @@ MCR_API size_t mcr_dispatch_count(struct mcr_context *ctx);
  *  \return True if signal interface has a dispatcher
  */
 MCR_API bool mcr_dispatch_enabled(struct mcr_context *ctx,
-									 struct mcr_ISignal *isigPt);
+								  struct mcr_ISignal *isigPt);
 /*! Enable dispatching from the given signal type.
  *
  *  \param typePt \ref opt Signal interface to enable dispatch

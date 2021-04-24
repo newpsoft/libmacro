@@ -343,7 +343,7 @@ QVariant SerCommand::args(const SerSignal &container)
 {
 	QStringList ret;
 	size_t count;
-	auto *cmd = container.data<ICommand>();
+	auto *cmd = container.data<Command>();
 	if (!container.empty()) {
 		count = cmd->argCount();
 		for (size_t i = 0; i < count; i++) {
@@ -356,10 +356,10 @@ QVariant SerCommand::args(const SerSignal &container)
 void SerCommand::setArgs(SerSignal &container, const QVariant &val)
 {
 	QStringList list = val.toStringList();
-	auto *pt = container.mkdata().data<ICommand>();
+	auto *pt = container.mkdata().data<Command>();
 	pt->setArgCount(list.size());
 	for (size_t i = 0; i < (size_t)list.size(); i++) {
-		pt->setArg(i, list[(int)i].toUtf8().data());
+		pt->setArg(i, std::string(list[(int)i].toUtf8().data()));
 	}
 }
 

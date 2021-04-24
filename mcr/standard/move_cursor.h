@@ -72,9 +72,6 @@ MCR_API bool mcr_resembles(const struct mcr_MoveCursor *lhs,
 
 /*! Signal interface of \ref mcr_MoveCursor */
 MCR_API struct mcr_ISignal *mcr_iMoveCursor(struct mcr_context *ctx);
-/*! Signal data cast \ref mcr_MoveCursor * */
-#define mcr_MoveCursor_data(sigPt) \
-mcr_castpt(struct mcr_MoveCursor, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }

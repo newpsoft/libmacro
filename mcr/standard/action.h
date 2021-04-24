@@ -61,9 +61,6 @@ MCR_API bool mcr_Action_receive(struct mcr_Trigger *trigPt,
 
 /*! \ref mcr_ITrigger for \ref mcr_Action */
 MCR_API struct mcr_ITrigger *mcr_iAction(struct mcr_context *ctx);
-/*! \ref mcr_Action member of \ref mcr_Trigger */
-#define mcr_Action_data(trigPt) \
-mcr_castpt(struct mcr_Action, mcr_Trigger_data(trigPt))
 
 #ifdef __cplusplus
 }

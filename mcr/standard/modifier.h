@@ -64,9 +64,6 @@ MCR_API void mcr_Modifier_modify(struct mcr_Modifier *modPt,
 
 /*! Get the signal interface for \ref mcr_Modifier */
 MCR_API struct mcr_ISignal *mcr_iModifier(struct mcr_context *ctx);
-/*! Get modifier data of a signal */
-#define mcr_Modifier_data(sigPt) \
-mcr_castpt(struct mcr_Modifier, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }

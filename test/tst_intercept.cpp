@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 	mangleSignal = new mcr::Signal(&libmacroPt->iKey);
 	/* Confusing?  This will all be simplified in the future. */
 	mcr::SignalBuilder(libmacroPt).build(&mangleSignal->self).mkdata();
-	mangleKey = mcr_Key_data(&mangleSignal->self);
+	mangleKey = reinterpret_cast<mcr_Key *>(mcr_Signal_data(&mangleSignal->self));
 
 	/* Listen for signals. There will be a C++ wrapper for this. */
 	if (onlyHearKeysFlag) {
@@ -293,7 +293,7 @@ static bool receive(struct mcr_DispatchReceiver *, struct mcr_Signal * dispatchS
 	std::cout << "Current modifiers are " << mods << '.' << std::endl;
 	/* Found a key, print values */
 	if (dispatchSignal->isignal == &libmacroPt->iKey) {
-		mcr_Key *keyPt = mcr_Key_data(dispatchSignal);
+		mcr_Key *keyPt = reinterpret_cast<mcr_Key *>(mcr_Signal_data(dispatchSignal));
 		if (keyPt) {
 			std::cout << "Key: " << keyPt->key << ":" << libmacroPt->serial.keyName(keyPt->key) << std::endl;
 			std::cout << "Apply: " << keyPt->apply << ":";

@@ -49,7 +49,7 @@ unsigned int mcr_key_modifier(struct mcr_context *ctx, int key)
 		if (found)
 			return found->second.u_integer;
 	}
-	return MCR_MOD_ANY;
+	return 0;
 }
 
 bool mcr_resembles_justified(const mcr_Dimensions first,

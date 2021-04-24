@@ -134,9 +134,14 @@ void Registry::remove(struct mcr_Interface *ifacePt)
 	auto mapFound = priv->interfaceMap.find(ifacePt);
 	if (mapFound != priv->interfaceMap.end())
 		priv->interfaceMap.erase(mapFound);
-	for (auto rit = priv->nameMap.rbegin(); rit != priv->nameMap.rend(); rit++) {
-		if (rit->second == ifacePt)
-			priv->nameMap.erase(rit.base());
+	for (auto iter = priv->nameMap.begin(); iter != priv->nameMap.end();) {
+		if (iter->second == ifacePt) {
+			priv->nameMap.erase(iter);
+			// Map erase iterator is unstable
+			iter = priv->nameMap.begin();
+		} else {
+			++iter;
+		}
 	}
 	if (idFound != (size_t)~0) {
 		priv->interfaces.erase(priv->interfaces.begin() + idFound);

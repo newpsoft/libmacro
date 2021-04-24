@@ -52,7 +52,7 @@ void StringKey::send(mcr_Signal *signalPt)
 	size_t totalCount = context->characterCount(), characterCount, j;
 	for (size_t i = 0; i < str.size(); i++) {
 		c = str[i];
-		if (static_cast<size_t>(str[c]) < totalCount) {
+		if (static_cast<size_t>(c) < totalCount) {
 			auto *chara = context->characterData(c);
 			characterCount = context->characterCount(c);
 			for (j = 0; j < characterCount; j++) {

@@ -61,8 +61,15 @@ int mcr_HidEcho_send_member(struct mcr_HidEcho *echoPt, struct mcr_context *ctx)
 {
 	dassert(echoPt);
 	dassert(ctx);
+	INPUT inny = {0};
 	if (echoPt->echo < ctx->standard.platform_pt->echo_flag_count) {
-		mouse_event(ctx->standard.platform_pt->echo_flags[echoPt->echo], 0, 0, 0, 0);
+		inny.type = INPUT_MOUSE;
+		inny.mi.dwExtraInfo = MCR_WM_IGNORE;
+		inny.mi.dwFlags = ctx->standard.platform_pt->echo_flags[echoPt->echo];
+
+		if (SendInput(1, &inny, sizeof(inny)) != 1) {
+			mcr_error_set_return(EINTR);
+		}
 	}
 	return 0;
 }
@@ -88,13 +95,16 @@ int mcr_HidEcho_set_mouse_flags(struct mcr_context *ctx, DWORD *echoMouseEventFl
 int mcr_Key_send_member(struct mcr_Key *keyPt, struct mcr_context *ctx)
 {
 	UNUSED(ctx);
-	if (keyPt->apply != MCR_UNSET) {
-		keybd_event((BYTE) keyPt->key, (BYTE) keyPt->key,
-					KEYEVENTF_EXTENDEDKEY, 0);
-	}
-	if (keyPt->apply != MCR_SET) {
-		keybd_event((BYTE) keyPt->key, (BYTE) keyPt->key,
-					KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+	INPUT inny = {0};
+	inny.type = INPUT_KEYBOARD;
+	inny.ki.dwExtraInfo = MCR_WM_IGNORE;
+	inny.ki.wVk = keyPt->key;
+
+	if (keyPt->apply != MCR_SET)
+		inny.ki.dwFlags = KEYEVENTF_KEYUP;
+
+	if (SendInput(1, &inny, sizeof(inny)) != 1) {
+		mcr_error_set_return(EINTR);
 	}
 	return 0;
 }
@@ -102,19 +112,47 @@ int mcr_Key_send_member(struct mcr_Key *keyPt, struct mcr_context *ctx)
 int mcr_MoveCursor_send_member(struct mcr_MoveCursor *mcPt, struct mcr_context *ctx)
 {
 	UNUSED(ctx);
-	mouse_event(mcPt->justify_flag ? MOUSEEVENTF_MOVE :
-				MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-				(DWORD) mcPt->position[MCR_X], (DWORD) mcPt->position[MCR_Y], 0, 0);
+	INPUT inny = {0};
+	inny.type = INPUT_MOUSE;
+	inny.mi.dwExtraInfo = MCR_WM_IGNORE;
+	if (mcPt->justify_flag) {
+		inny.mi.dwFlags = MOUSEEVENTF_MOVE;
+		inny.mi.dx = (LONG) mcPt->position[MCR_X];
+		inny.mi.dy = (LONG) mcPt->position[MCR_Y];
+	} else {
+		inny.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK;
+		inny.mi.dx = (LONG) CALC_ABS_X(mcPt->position[MCR_X]);
+		inny.mi.dy = (LONG) CALC_ABS_Y(mcPt->position[MCR_Y]);
+	}
+
+	if (SendInput(1, &inny, sizeof(inny)) != 1) {
+		mcr_error_set_return(EINTR);
+	}
 	return 0;
 }
 
 int mcr_Scroll_send_member(struct mcr_Scroll *scrPt, struct mcr_context *ctx)
 {
 	UNUSED(ctx);
-	if (scrPt->dimensions[MCR_Y])
-		mouse_event(MOUSEEVENTF_WHEEL, 0, 0, (DWORD) scrPt->dimensions[MCR_Y], 0);
-	if (scrPt->dimensions[MCR_X])
-		mouse_event(MOUSEEVENTF_HWHEEL, 0, 0, (DWORD) scrPt->dimensions[MCR_X], 0);
+	INPUT inny = {0};
+	inny.type = INPUT_MOUSE;
+	inny.mi.dwExtraInfo = MCR_WM_IGNORE;
+
+	if (scrPt->dimensions[MCR_Y]) {
+		inny.mi.dwFlags = MOUSEEVENTF_WHEEL;
+		inny.mi.mouseData = (DWORD) scrPt->dimensions[MCR_Y];
+		if (SendInput(1, &inny, sizeof(inny)) != 1) {
+			mcr_error_set_return(EINTR);
+		}
+	}
+	if (scrPt->dimensions[MCR_X]) {
+		inny.mi.dwFlags = MOUSEEVENTF_HWHEEL;
+		inny.mi.mouseData = (DWORD) scrPt->dimensions[MCR_X];
+		if (SendInput(1, &inny, sizeof(inny)) != 1) {
+			mcr_error_set_return(EINTR);
+		}
+	}
+
 	return 0;
 }
 

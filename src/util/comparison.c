@@ -23,12 +23,12 @@
 /* Comparison */
 int mcr_char_compare(const void *lhs, const void *rhs)
 {
-	return MCR_CMP_PTR(const char, lhs, rhs);
+	return MCR_CMP_CAST(*(const char *), lhs, rhs);
 }
 
 int mcr_id_compare(const void *lhs, const void *rhs)
 {
-	return MCR_CMP_PTR(size_t, lhs, rhs);
+	return MCR_CMP_CAST(*(size_t *), lhs, rhs);
 }
 
 int mcr_name_compare(const void *lhs, const void *rhs)
@@ -48,15 +48,15 @@ int mcr_str_compare(const void *lhs, const void *rhs)
 
 int mcr_int_compare(const void *lhs, const void *rhs)
 {
-	return MCR_CMP_PTR(const int, lhs, rhs);
+	return MCR_CMP_CAST(*(const int *), lhs, rhs);
 }
 
 int mcr_unsigned_compare(const void *lhs, const void *rhs)
 {
-	return MCR_CMP_PTR(const unsigned int, lhs, rhs);
+	return MCR_CMP_CAST(*(const unsigned int *), lhs, rhs);
 }
 
 int mcr_ref_compare(const void *lhs, const void *rhs)
 {
-	return MCR_CMP_PTR(const void *const, lhs, rhs);
+	return MCR_CMP_CAST(*(const void *const *), lhs, rhs);
 }

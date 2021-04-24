@@ -46,7 +46,8 @@ class DispatchReceiverMap final
 public:
 	struct ReceiverArrayLess :
 		std::binary_function<mcr_ReceiverMapElement, mcr_ReceiverMapElement, bool> {
-		bool operator()(const mcr_ReceiverMapElement &s1, const mcr_ReceiverMapElement &s2) const
+		bool operator()(const mcr_ReceiverMapElement &s1,
+						const mcr_ReceiverMapElement &s2) const
 		{
 			return reinterpret_cast<const kT &>(s1) < reinterpret_cast<const kT &>(s2);
 		}
@@ -107,26 +108,33 @@ public:
 	{
 		apply(nullptr, 0);
 		// In map, for each sorted vector search and remove receiver
-		for (auto rit = _receiverMap.rbegin(); rit != _receiverMap.rend(); ++rit) {
-			DispatchReceiverSet &receiverSet = rit->second;
+		for (auto iter = _receiverMap.begin(); iter != _receiverMap.end();) {
+			DispatchReceiverSet &receiverSet = iter->second;
 			if (receiverSet.empty()) {
 				/* This set is empty, remove from map and vector. */
-				removeKey(rit->first);
-				_receiverMap.erase(rit.base());
+				removeKey(iter->first);
+				_receiverMap.erase(iter);
+				// Map erase iterator is unstable
+				iter = _receiverMap.begin();
+				continue;
 			} else if (receiverSet.find(remReceiver)) {
 				/* Has receiver to remove... */
 				receiverSet.remove(remReceiver);
 				/* Now empty remove, else update vector array */
 				if (receiverSet.empty()) {
-					removeKey(rit->first);
-					_receiverMap.erase(rit.base());
+					removeKey(iter->first);
+					_receiverMap.erase(iter);
+					// Map erase iterator is unstable
+					iter = _receiverMap.begin();
+					continue;
 				} else {
 					/* Note: Receiver is likely only registered once, so
 					 * updating one vector is heuristically more efficient than
 					 * everything every time. */
-					updateVector(rit->first, receiverSet.array(), receiverSet.count());
+					updateVector(iter->first, receiverSet.array(), receiverSet.count());
 				}
 			}
+			++iter;
 			/* else not found in current set, move to next. */
 		}
 		apply();
@@ -257,7 +265,7 @@ private:
 	{
 		if (rhsPt) {
 			if (lhsPt)
-				return MCR_CMP_PTR(const kT, lhsPt, rhsPt);
+				return MCR_CMP_CAST(*reinterpret_cast<const kT *>, (lhsPt), (rhsPt));
 			return -1;
 		}
 		return !!lhsPt;

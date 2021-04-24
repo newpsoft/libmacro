@@ -122,12 +122,17 @@ void LibmacroPlatform::removeEcho(size_t code)
 	}
 	if (code < priv->echoFlags.size()) {
 		priv->echoFlags.erase(priv->echoFlags.begin() + code);
-		for (auto rFlagsIt = priv->flagsEchoMap.rbegin(); rFlagsIt != priv->flagsEchoMap.rend(); ++rFlagsIt) {
-			if (rFlagsIt->second == code) {
-				priv->flagsEchoMap.erase(rFlagsIt.base());
-			} else if (rFlagsIt->second > code) {
+		for (auto flagsIter = priv->flagsEchoMap.begin(); flagsIter != priv->flagsEchoMap.end();) {
+			if (flagsIter->second == code) {
+				priv->flagsEchoMap.erase(flagsIter);
+				// Map erase iterator is unstable
+				flagsIter = priv->flagsEchoMap.begin();
+			} else if (flagsIter->second > code) {
 				// Map's echo codes shift left
-				--rFlagsIt->second;
+				--flagsIter->second;
+				++flagsIter;
+			} else {
+				++flagsIter;
 			}
 		}
 	}

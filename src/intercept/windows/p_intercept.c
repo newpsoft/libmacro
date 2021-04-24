@@ -39,7 +39,8 @@
 }
 
 static size_t mcr_intercept_wm_echos_impl[MCR_WM_HIDECHO_COUNT];
-MCR_API const size_t *const mcr_intercept_wm_echo_defaults = mcr_intercept_wm_echos_impl;
+MCR_API const size_t *const mcr_intercept_wm_echo_defaults =
+	mcr_intercept_wm_echos_impl;
 
 static MCR_INLINE enum mcr_ApplyType wparam_apply(WPARAM wParam)
 {
@@ -142,7 +143,7 @@ unsigned int mcr_intercept_modifiers(struct mcr_context *ctx)
 
 	/* Cycle all flags */
 	while (modifier) {
-		key = mcr_key_modifier(ctx, modifier);
+		key = mcr_modifier_key(ctx, modifier);
 		/* high bit is down, lowest byte is toggled. */
 		/* high bit of byte is 0x80, high bit of short is 0x8000 */
 		if (key && (keyState[key] & 0x8080) != 0)
@@ -168,7 +169,8 @@ int mcr_intercept_key_set_enabled(struct mcr_context *ctx, bool enable)
 		if (apply_context(ctx))
 			return mcr_err;
 		if (!_hook_key_id)
-			_hook_key_id = SetWindowsHookEx(WH_KEYBOARD_LL, key_proc, GetModuleHandle(NULL), 0);
+			_hook_key_id = SetWindowsHookEx(WH_KEYBOARD_LL, key_proc, GetModuleHandle(NULL),
+											0);
 		if (!_hook_key_id)
 			winerr(EINTR);
 	} else {
@@ -201,7 +203,8 @@ int mcr_intercept_mouse_set_enabled(struct mcr_context *ctx, bool enable)
 		if (apply_context(ctx))
 			return mcr_err;
 		if (!_hook_mouse_id)
-			_hook_mouse_id = SetWindowsHookEx(WH_MOUSE_LL, mouse_proc, GetModuleHandle(NULL), 0);
+			_hook_mouse_id = SetWindowsHookEx(WH_MOUSE_LL, mouse_proc,
+											  GetModuleHandle(NULL), 0);
 		if (!_hook_mouse_id)
 			winerr(EINTR);
 	} else {
@@ -220,7 +223,8 @@ int mcr_intercept_mouse_set_enabled(struct mcr_context *ctx, bool enable)
 	return mcr_err;
 }
 
-int mcr_intercept_set_wm_echo(struct mcr_context *ctx, WPARAM wm, size_t echoCode)
+int mcr_intercept_set_wm_echo(struct mcr_context *ctx, WPARAM wm,
+							  size_t echoCode)
 {
 	if (wm < WM_MOUSEFIRST || wm > WM_MOUSELAST)
 		error_set_return(EINVAL);
@@ -230,8 +234,10 @@ int mcr_intercept_set_wm_echo(struct mcr_context *ctx, WPARAM wm, size_t echoCod
 
 static LRESULT __stdcall key_proc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	if (nCode == HC_ACTION) {
-		_key.key = (int)((KBDLLHOOKSTRUCT *) lParam)->vkCode;
+	KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *) lParam;
+
+	if (nCode == HC_ACTION && p->dwExtraInfo != MCR_WM_IGNORE) {
+		_key.key = (int)p->vkCode;
 		_key.apply = wparam_apply(wParam);
 		if (mcr_dispatch(_hook_context, &_keySig) && _hook_context->intercept.blockable)
 			return -1;
@@ -246,7 +252,7 @@ static LRESULT __stdcall mouse_proc(int nCode, WPARAM wParam, LPARAM lParam)
 	bool blockable = _hook_context->intercept.blockable;
 	MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *) lParam;
 //	POINT current;
-	if (nCode == HC_ACTION) {
+	if (nCode == HC_ACTION && p->dwExtraInfo != MCR_WM_IGNORE) {
 		switch (wParam) {
 		case WM_MOUSEMOVE:
 			// \todo Multiple screens may need GetCursorPos
@@ -283,7 +289,7 @@ static LRESULT __stdcall mouse_proc(int nCode, WPARAM wParam, LPARAM lParam)
 			// \todo GET_XBUTTON_WPARAM to specify X1 or X2 buttons
 			if (wParam >= WM_MOUSEFIRST && wParam <= WM_MOUSELAST) {
 				if ((_echo.echo = nPt->wm_echos[MCR_WM_HIDECHO_INDEX(wParam)])
-						!= MCR_HIDECHO_ANY) {
+					!= MCR_HIDECHO_ANY) {
 					if (mcr_dispatch(_hook_context, &_echoSig) && blockable)
 						return -1;
 				}
@@ -313,7 +319,8 @@ static int verify_key_state(PBYTE keyState, size_t keyState_size)
 	return 0;
 }
 
-static int free_return(struct mcr_intercept_platform *nPt)//a, bool grabKeyFlag, bool grabMouseFlag)
+static int free_return(struct mcr_intercept_platform
+					   *nPt)//a, bool grabKeyFlag, bool grabMouseFlag)
 {
 	int error = mcr_err;
 //	if (grabKeyFlag)

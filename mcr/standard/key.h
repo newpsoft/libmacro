@@ -61,9 +61,6 @@ MCR_API int mcr_Key_compare(const void *lhsPt, const void *rhsPt);
 
 /*! Get the Signal interface of \ref mcr_Key */
 MCR_API struct mcr_ISignal *mcr_iKey(struct mcr_context *ctx);
-/*! Signal data cast \ref mcr_Key * */
-#define mcr_Key_data(sigPt) \
-mcr_castpt(struct mcr_Key, mcr_Signal_data(sigPt))
 
 ///* Modifier mapping */
 ///*! Get the modifier from a key code. */

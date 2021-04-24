@@ -49,9 +49,6 @@ MCR_API void mcr_NoOp_send_member(struct mcr_NoOp *dataPt);
 
 /*! Signal interface of \ref mcr_NoOp */
 MCR_API struct mcr_ISignal *mcr_iNoOp(struct mcr_context *ctx);
-/*! Signal data cast \ref mcr_NoOp * */
-#define mcr_NoOp_data(sigPt) \
-mcr_castpt(struct mcr_NoOp, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }

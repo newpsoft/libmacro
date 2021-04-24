@@ -115,7 +115,7 @@ void mcr_Device_ctor(struct mcr_Device *devPt, struct mcr_context *ctx, const ch
 		devPt->fd = -1;
 		devPt->event_fd = -1;
 		if (name)
-			snprintf(devPt->device.name, UINPUT_MAX_NAME_SIZE, name);
+			snprintf(devPt->device.name, UINPUT_MAX_NAME_SIZE, "%s", name);
 		devPt->set_events = setEvents;
 		devPt->set_event_count = setEventCount;
 		devPt->event_bits = eventBits;

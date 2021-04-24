@@ -238,6 +238,10 @@ struct MCR_API Libmacro final // And that's final!
 	}
 	void clearDispatchers();
 
+	LibmacroPlatform *platform()
+	{
+		return _platform;
+	}
 private:
 	bool _enabled;
 	/* non-export */

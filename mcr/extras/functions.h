@@ -41,20 +41,20 @@ T &reference(void *pointer)
 
 /*! \pre vT *value must be a member of rT named "self" */
 template<typename rT, typename vT>
-rT *offset(vT *valuePt)
+rT *offset(vT *selfPt)
 {
 	rT *r = nullptr;
-	size_t diff = ((char *)&r->self) - ((char *)r);
-	return reinterpret_cast<rT *>(((char *)valuePt) - diff);
+	size_t diff = reinterpret_cast<size_t>(&r->self);
+	return reinterpret_cast<rT *>(reinterpret_cast<char *>(selfPt) - diff);
 }
 
 /*! \pre vT *value must be a member of rT named "self" */
 template<typename rT, typename vT>
-const rT *offset(const vT *valuePt)
+const rT *offset(const vT *selfPt)
 {
 	rT *r = nullptr;
-	size_t diff = ((const char *)&r->self) - ((const char *)r);
-	return reinterpret_cast<const rT *>(((const char *)valuePt) - diff);
+	size_t diff = reinterpret_cast<size_t>(&r->self);
+	return reinterpret_cast<const rT *>(reinterpret_cast<const char *>(selfPt) - diff);
 }
 
 /*! C++ function to allocate data member to heap. */

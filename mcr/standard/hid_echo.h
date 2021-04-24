@@ -59,9 +59,6 @@ MCR_API size_t mcr_HidEcho_count(struct mcr_context *ctx);
 
 /*! Get the \ref mcr_ISignal of \ref mcr_HidEcho */
 MCR_API struct mcr_ISignal *mcr_iHidEcho(struct mcr_context *ctx);
-/*! Signal data cast \ref mcr_HidEcho * */
-#define mcr_HidEcho_data(sigPt) \
-mcr_castpt(struct mcr_HidEcho, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }

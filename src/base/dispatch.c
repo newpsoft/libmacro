@@ -32,13 +32,27 @@ static MCR_INLINE void mcr_dispatch_set_dispatcher(struct mcr_context *ctx,
 int mcr_dispatch_lock(struct mcr_context *ctx)
 {
 	dassert(ctx);
-	int err = mtx_lock(&ctx->base.dispatch_lock);
+	int err = 0;
+	unsigned int max = 200, i = 0;
+	struct timespec delay = {
+		.tv_sec = 0,
+		.tv_nsec = 2000000 // 2ms
+	};
+	while ((err = mcr_dispatch_trylock(ctx)) && ++i != max) {
+		thrd_sleep(&delay, NULL);
+	}
 	if (err) {
-		err = mcr_thrd_errno(err);
 		error_set_return(err);
 	}
 	mcr_err = 0;
 	return 0;
+}
+
+int mcr_dispatch_trylock(struct mcr_context *ctx)
+{
+	dassert(ctx);
+	int err = mtx_trylock(&ctx->base.dispatch_lock);
+	return err ? mcr_thrd_errno(err) : 0;
 }
 
 int mcr_dispatch_unlock(struct mcr_context *ctx)
@@ -57,11 +71,12 @@ bool mcr_dispatch(struct mcr_context *ctx, struct mcr_Signal *sigPt)
 {
 	dassert(ctx);
 	struct mcr_base *modBase = &ctx->base;
-	struct mcr_IDispatcher *dispPt = sigPt && sigPt->isignal ? sigPt->isignal->dispatcher_pt : NULL;
+	struct mcr_IDispatcher *dispPt = sigPt
+										 && sigPt->isignal ? sigPt->isignal->dispatcher_pt : NULL;
 	struct mcr_IDispatcher *genPt = modBase->generic_dispatcher_pt;
 	bool isGen = genPt && modBase->generic_dispatcher_flag;
 	unsigned int *modsPt = &ctx->modifiers;
-	if (mcr_dispatch_lock(ctx)) {
+	if (mcr_dispatch_trylock(ctx)) {
 		dmsg;
 		return false;
 	}
@@ -88,7 +103,8 @@ bool mcr_dispatch(struct mcr_context *ctx, struct mcr_Signal *sigPt)
 	return false;
 }
 
-int mcr_dispatch_set_dispatchers(struct mcr_context *ctx, struct mcr_IDispatcher **dispatchers, size_t count)
+int mcr_dispatch_set_dispatchers(struct mcr_context *ctx,
+								 struct mcr_IDispatcher **dispatchers, size_t count)
 {
 	if (count && !dispatchers)
 		error_set_return(EINVAL);
@@ -102,7 +118,8 @@ int mcr_dispatch_set_dispatchers(struct mcr_context *ctx, struct mcr_IDispatcher
 	return mcr_dispatch_unlock(ctx);
 }
 
-void mcr_dispatch_set_generic_dispatcher(struct mcr_context *ctx, struct mcr_IDispatcher *dispatcherPt)
+void mcr_dispatch_set_generic_dispatcher(struct mcr_context *ctx,
+		struct mcr_IDispatcher *dispatcherPt)
 {
 	/* Just one pointer, no need to lock. */
 	ctx->base.generic_dispatcher_pt = dispatcherPt;
@@ -115,7 +132,7 @@ size_t mcr_dispatch_count(struct mcr_context *ctx)
 }
 
 bool mcr_dispatch_enabled(struct mcr_context *ctx,
-							 struct mcr_ISignal *isigPt)
+						  struct mcr_ISignal *isigPt)
 {
 	dassert(ctx);
 	return isigPt ? !!isigPt->dispatcher_pt :
@@ -161,7 +178,8 @@ int mcr_dispatch_add(struct mcr_context *ctx,
 					 mcr_dispatch_receive_fnc receiveFnc)
 {
 	struct mcr_IDispatcher *dispPt =
-		mcr_IDispatcher_from_id(ctx, mcr_ISignal_id(interceptPt->isignal));
+		mcr_IDispatcher_from_id(ctx,
+								mcr_ISignal_id(interceptPt ? interceptPt->isignal : NULL));
 	dassert(receiveFnc);
 	/* mcr_Trigger_receive requires an object */
 	if ((receiveFnc == mcr_Trigger_receive || receiveFnc == mcr_Macro_receive)
@@ -236,8 +254,8 @@ void mcr_dispatch_clear_all(struct mcr_context *ctx)
 }
 
 void mcr_dispatch_modify(struct mcr_context *ctx,
-						  struct mcr_Signal *sigPt,
-						  unsigned int *modifiersPt)
+						 struct mcr_Signal *sigPt,
+						 unsigned int *modifiersPt)
 {
 	dassert(ctx);
 	struct mcr_base *modBase = &ctx->base;
@@ -245,7 +263,7 @@ void mcr_dispatch_modify(struct mcr_context *ctx,
 			sigPt && sigPt->isignal ? sigPt->isignal->dispatcher_pt : NULL, *genPt =
 				modBase->generic_dispatcher_pt;
 	bool isGen = genPt && modBase->generic_dispatcher_flag;
-	if (mcr_dispatch_lock(ctx)) {
+	if (mcr_dispatch_trylock(ctx)) {
 		dmsg;
 		return;
 	}

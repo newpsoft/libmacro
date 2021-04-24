@@ -47,9 +47,6 @@ MCR_API int mcr_Scroll_send_member(struct mcr_Scroll *dataPt, struct mcr_context
 
 /*! Signal interface of \ref mcr_Scroll */
 MCR_API struct mcr_ISignal *mcr_iScroll(struct mcr_context *ctx);
-/*! Signal data cast \ref mcr_Scroll * */
-#define mcr_Scroll_data(sigPt) \
-mcr_castpt(struct mcr_Scroll, mcr_Signal_data(sigPt))
 
 #ifdef __cplusplus
 }
