@@ -3,10 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 # Export mcr::Libmacro as the library target.
 
 option(MCR_NOEXTRAS "Do not include extra functionality, or any C++.  Not yet possible on Windows because of threading." OFF)
-option(MCR_NOQT "Do not include any QT functionality.  Implied by the MCR_NOEXTRAS option." OFF)
-if (MCR_NOEXTRAS)
-	set(MCR_NOQT ON)
-endif (MCR_NOEXTRAS)
 # stl_off not supported
 
 if (CMAKE_BUILD_TYPE MATCHES "^[Rr]el" OR CMAKE_BUILD_TYPE MATCHES "^[Mm]in")
@@ -44,12 +40,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (NOT MCR_NOQT)
-	set(CMAKE_AUTOUIC ON)
-	set(CMAKE_AUTOMOC ON)
-	set(CMAKE_AUTORCC ON)
-endif (NOT MCR_NOQT)
-
 # Openssl static
 if (MCR_STATIC)
 	set(OPENSSL_USE_STATIC_LIBS ON)
@@ -63,9 +53,6 @@ find_package(Threads REQUIRED)
 if (NOT MCR_NOEXTRAS)
 	find_package(OpenSSL REQUIRED)
 endif (NOT MCR_NOEXTRAS)
-if (NOT MCR_NOQT)
-	find_package(Qt5 COMPONENTS Core Test REQUIRED)
-endif (NOT MCR_NOQT)
 
 # Lib sources
 file(GLOB LIBMACRO_SRC
@@ -84,6 +71,7 @@ file(GLOB LIBMACRO_SRC
 	src/extras/ssl/p_safe_string.cpp
 	)
 file(GLOB_RECURSE COMMON_HEADERS mcr/*.h)
+file(GLOB_RECURSE LIBMACRO_ASSETS assets/*)
 set(COMMON_DEFINES
 	-DVERSION=${MCR_VER}.${GIT_REVISION}
 	-DGIT_BRANCH=${GIT_BRANCH}
@@ -101,11 +89,6 @@ if (MCR_NOEXTRAS)
 	list(FILTER LIBMACRO_SRC EXCLUDE REGEX
 		src/extras/
 		)
-# Remove the classes that use QT
-elseif (MCR_NOQT)
-	list(FILTER LIBMACRO_SRC EXCLUDE REGEX
-		signal_functions.cpp|trigger_functions.cpp
-		)
 endif (MCR_NOEXTRAS)
 
 # Library config files
@@ -121,7 +104,7 @@ else ()
 	set(LIBMACRO_EXTRA_FILES "")
 endif ()
 
-# Library
+# Compile
 add_library(${LIBMACRO_TARGET} ${LIBMACRO_SRC}
 	${COMMON_HEADERS} "${LIBMACRO_EXTRA_FILES}"
 	)
@@ -135,22 +118,25 @@ target_include_directories(${LIBMACRO_TARGET} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR
 # Library link
 if (NOT MCR_NOEXTRAS)
 	target_link_libraries(${LIBMACRO_TARGET} OpenSSL::Crypto Threads::Threads)
-	if (NOT MCR_NOQT)
-		target_link_libraries(${LIBMACRO_TARGET} Qt5::Core)
-	endif (NOT MCR_NOQT)
 endif (NOT MCR_NOEXTRAS)
-# Be aware msvc may require linking to Advapi32 and user32
+# Be aware msvc may require linking to Advapi32 and user32 (reference mingw)
 
 # Library defines
 target_compile_definitions(${LIBMACRO_TARGET} PRIVATE -DLIBMACRO_LIBRARY ${COMMON_DEFINES})
 
 # Tests use QT for test framework and CLI options
-if (BUILD_TESTING AND NOT MCR_NOQT)
+if (BUILD_TESTING)
+	# Using Qt and QtTest
+	set(CMAKE_AUTOUIC ON)
+	set(CMAKE_AUTOMOC ON)
+	set(CMAKE_AUTORCC ON)
+	find_package(Qt5 COMPONENTS Core Test REQUIRED)
+
 	file(GLOB_RECURSE TEST_SRC test/*.h test/*.cpp)
 	list(FILTER TEST_SRC EXCLUDE REGEX test/tst_.*\.cpp)
 	add_executable(tst_libmacro ${TEST_SRC})
 	add_dependencies(tst_libmacro ${LIBMACRO_TARGET})
-	target_link_libraries(tst_libmacro ${LIBMACRO_TARGET} Qt5::Test)
+	target_link_libraries(tst_libmacro ${LIBMACRO_TARGET} Qt5::Core Qt5::Test)
 	target_compile_definitions(tst_libmacro PRIVATE ${COMMON_DEFINES})
 
 	add_executable(tst_intercept test/tst_intercept.h test/tst_intercept.cpp)
@@ -160,7 +146,7 @@ if (BUILD_TESTING AND NOT MCR_NOQT)
 
 #	add_executable(Profile profile.c)
 #	add_executable(Profile profile.cpp)
-endif (BUILD_TESTING AND NOT MCR_NOQT)
+endif (BUILD_TESTING)
 
 
 # Make files visible in editor, and use astyle in-editor.
@@ -168,6 +154,7 @@ add_custom_target(DISTFILES SOURCES
 	libmacro.astylerc
 	README.md
 	style
+	${LIBMACRO_ASSETS}
 	)
 
 # Windows package everything to base directory, otherwise lib is separate.
@@ -182,7 +169,4 @@ install(DIRECTORY mcr DESTINATION include)
 include(coverage.cmake)
 
 # Platform variables and MCR_DEBUG required from libmacro.cmake
-# Requires DEPLOYQT_TARGET
-set(DEPLOYQT_TARGET ${LIBMACRO_TARGET})
-include(deployqt.cmake)
 include(cpack.cmake)

@@ -1,3 +1,4 @@
+#include <QtCore>
 #include <QtTest/QtTest>
 
 #include "tcreate.h"
