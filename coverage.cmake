@@ -1,5 +1,12 @@
 option(BUILD_TESTING "Also build test, development, and debugging applications." ON)
+
 if (BUILD_TESTING)
+	# Using QtTest
+	set(CMAKE_AUTOUIC ON)
+	set(CMAKE_AUTOMOC ON)
+	set(CMAKE_AUTORCC ON)
+	find_package(Qt5 COMPONENTS Core Test REQUIRED)
+
 	enable_testing(true)
 	include(CTest)
 
