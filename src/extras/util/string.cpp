@@ -16,8 +16,6 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "mcr/libmacro.h"
 #include "mcr/extras/util/string.h"
 
