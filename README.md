@@ -42,18 +42,16 @@
    * Threads: Always required until further notice.
    * Git: Required for versioning
    * OpenSSL: Required for extras
-   * Qt5Core: Required for extras
+   * Qt5Core: Required for testing
    * Qt5Test: Required for testing
 
  Supported optional cmake arguments
 
- * Default custom cmake options: `-DMCR_NOEXTRAS=OFF -DMCR_NOQT=OFF
- -DBUILD_DOC=ON -DBUILD_PACKAGE=ON -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=ON`
+ * Default custom cmake options: `-DMCR_NOEXTRAS=OFF -DBUILD_DOC=ON
+ -DBUILD_PACKAGE=ON -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=ON`
    * For a debug build doc and packaging are turned off by default.
  * MCR_NOEXTRAS: Do not include extra functionality, or any C++.  Not yet
  possible on Windows because of threading.
- * MCR_NOQT: Do not include any QT functionality. Implied by the MCR_NOEXTRAS
- option.
  * BUILD_DOC: Also build doxygen documentation.
  * BUILD_PACKAGE: Build packaging materials to use with cpack.
  * BUILD_SHARED_LIBS: A library that is not shared is static.
