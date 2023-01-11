@@ -16,7 +16,7 @@ void TRegistry::base()
 {
 	mcr::Registry *boo;
 	std::string lorem =
-		#include "lorem_ipsum.txt"
+		#include "assets/lorem_ipsum.txt"
 			;
 	std::string name;
 	for (size_t i = 0; i < COUNT; i++) {
