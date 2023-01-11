@@ -143,9 +143,6 @@ if (BUILD_TESTING)
 	add_dependencies(tst_intercept ${LIBMACRO_TARGET})
 	target_link_libraries(tst_intercept ${LIBMACRO_TARGET} OpenSSL::Crypto Threads::Threads Qt5::Core)
 	target_compile_definitions(tst_intercept PRIVATE ${COMMON_DEFINES})
-
-#	add_executable(Profile profile.c)
-#	add_executable(Profile profile.cpp)
 endif (BUILD_TESTING)
 
 
