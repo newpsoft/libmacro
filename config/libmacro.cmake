@@ -19,7 +19,7 @@ elseif (APPLE)
 	set(MCR_PLATFORM apple)
 # LINUX is defined as UNIX AND NOT APPLE by cmake
 elseif (UNIX)
-	# Explicit LINUX definition, other UNIX platforms not yet supported.
+	# Explicit LINUX definition, other UNIX platforms not supported.
 	set(LINUX true)
 	set(MCR_PLATFORM linux)
 else ()

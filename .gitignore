@@ -32,7 +32,6 @@ Thumbs.db
 *.rc
 /.qmake.cache
 /.qmake.stash
-bin/
 out/
 obj/
 doxygen/

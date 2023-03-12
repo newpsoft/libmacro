@@ -18,11 +18,11 @@ else ()
 endif (BUILD_SHARED_LIBS)
 
 # Defines MCR_VER, MCR_VER_MAJ, MCR_VER_MIN, MCR_DEBUG, MCR_PLATFORM
-include(libmacro.cmake)
+include(config/libmacro.cmake)
 # Defines GIT_EXECUTABLE, GIT_REVISION, GIT_BRANCH
-include(git.cmake)
+include(config/git.cmake)
 # Create documentation: build + install targets if BUILD_DOC
-include(doxygen.cmake)
+include(config/doxygen.cmake)
 
 project(libmacro VERSION ${MCR_VER}.${GIT_REVISION} HOMEPAGE_URL "https://sites.google.com/view/newparadigmsoftware" LANGUAGES C CXX)
 # lib is not prepended to library file name on windows
@@ -72,6 +72,7 @@ file(GLOB LIBMACRO_SRC
 	)
 file(GLOB_RECURSE COMMON_HEADERS mcr/*.h)
 file(GLOB_RECURSE LIBMACRO_ASSETS assets/*)
+file(GLOB_RECURSE LIBMACRO_BIN bin/*)
 set(COMMON_DEFINES
 	-DVERSION=${MCR_VER}.${GIT_REVISION}
 	-DGIT_BRANCH=${GIT_BRANCH}
@@ -145,12 +146,12 @@ if (BUILD_TESTING)
 	target_compile_definitions(tst_intercept PRIVATE ${COMMON_DEFINES})
 endif (BUILD_TESTING)
 
-
 # Make files visible in editor, and use astyle in-editor.
 add_custom_target(DISTFILES SOURCES
 	libmacro.astylerc
 	README.md
-	style
+	todo.txt
+	${LIBMACRO_BIN}
 	${LIBMACRO_ASSETS}
 	)
 
@@ -163,7 +164,7 @@ endif (windows)
 install(DIRECTORY mcr DESTINATION include)
 
 # Option to build tests
-include(coverage.cmake)
+include(config/coverage.cmake)
 
 # Platform variables and MCR_DEBUG required from libmacro.cmake
-include(cpack.cmake)
+include(config/cpack.cmake)
