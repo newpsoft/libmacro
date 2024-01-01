@@ -30,10 +30,10 @@
    same command-line switch.
      * cmake: `cmake --config <BUILD_TYPE>`
      * cpack: `cpack -C <BUILD_TYPE>`
-	 * May have to set environment variables Qt5_DIR or Qt5Core_DIR, such as
-	 `export Qt5_DIR=<cmake-dir>/Qt5`
+	 * May have to set environment variables Qt6_DIR or Qt6Core_DIR, such as
+	 `export Qt6_DIR=<cmake-dir>/Qt6`
 	 * Alternatively one may set CMAKE_PREFIX_PATH where cmake is in the
-	 subdirectory \<CMAKE_PREFIX_PATH\>/lib/cmake/ and Qt5 cmake files are in
+	 subdirectory \<CMAKE_PREFIX_PATH\>/lib/cmake/ and Qt6 cmake files are in
 	 the cmake subdirectory.
 	   * Example for windows, using QT 5.13.1 and MSVC 2017:
 	   "CMAKE_PREFIX_PATH=\<QT directory\>/5.13.1/msvc2017_64"
@@ -42,8 +42,8 @@
    * Threads: Always required until further notice.
    * Git: Required for versioning
    * OpenSSL: Required for extras
-   * Qt5Core: Required for testing
-   * Qt5Test: Required for testing
+   * Qt6Core: Required for testing
+   * Qt6Test: Required for testing
 
  Supported optional cmake arguments
 
@@ -65,7 +65,7 @@
  * CMAKE_INSTALL_PREFIX: Install location
  * CMAKE_PREFIX_PATH: Custom locations for headers, libraries, and QT version
  base directories.
- * Qt5_DIR, Qt5Core_DIR, Qt5Test_DIR: Qt cmake directories.
+ * Qt6_DIR, Qt6Core_DIR, Qt6Test_DIR: Qt cmake directories.
 
 ### Contributing ###
 

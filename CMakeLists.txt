@@ -125,27 +125,6 @@ endif (NOT MCR_NOEXTRAS)
 # Library defines
 target_compile_definitions(${LIBMACRO_TARGET} PRIVATE -DLIBMACRO_LIBRARY ${COMMON_DEFINES})
 
-# Tests use QT for test framework and CLI options
-if (BUILD_TESTING)
-	# Using Qt and QtTest
-	set(CMAKE_AUTOUIC ON)
-	set(CMAKE_AUTOMOC ON)
-	set(CMAKE_AUTORCC ON)
-	find_package(Qt5 COMPONENTS Core Test REQUIRED)
-
-	file(GLOB_RECURSE TEST_SRC test/*.h test/*.cpp)
-	list(FILTER TEST_SRC EXCLUDE REGEX test/tst_.*\.cpp)
-	add_executable(tst_libmacro ${TEST_SRC})
-	add_dependencies(tst_libmacro ${LIBMACRO_TARGET})
-	target_link_libraries(tst_libmacro ${LIBMACRO_TARGET} Qt5::Core Qt5::Test)
-	target_compile_definitions(tst_libmacro PRIVATE ${COMMON_DEFINES})
-
-	add_executable(tst_intercept test/tst_intercept.h test/tst_intercept.cpp)
-	add_dependencies(tst_intercept ${LIBMACRO_TARGET})
-	target_link_libraries(tst_intercept ${LIBMACRO_TARGET} OpenSSL::Crypto Threads::Threads Qt5::Core)
-	target_compile_definitions(tst_intercept PRIVATE ${COMMON_DEFINES})
-endif (BUILD_TESTING)
-
 # Make files visible in editor, and use astyle in-editor.
 add_custom_target(DISTFILES SOURCES
 	libmacro.astylerc

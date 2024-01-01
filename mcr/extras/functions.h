@@ -84,9 +84,10 @@ void resetDataMember(void *dataPt)
 template<typename T>
 mcr_DataMember doufu()
 {
-	return (mcr_DataMember) {
-		.data = new T(), .deallocate = &deleteDataMember<T>
-	};
+    mcr_DataMember val;
+    val.data = new T();
+    val.deallocate = &deleteDataMember<T>;
+    return val;
 }
 
 extern MCR_API void throwError(const char *lineString, int errorNumber);
