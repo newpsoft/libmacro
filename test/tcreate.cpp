@@ -1,99 +1,67 @@
+/* Libmacro - A multi-platform, extendable macro and hotkey C library
+  Copyright (C) 2013 Jonathan Pelletier, New Paradigm Software
+  SPDX-License-Identifier: LGPL-2.1-only */
+
 #include "tcreate.h"
 
-#include "mcr/util/c11threads.h"
+#include "mcr/api.h"
+#include "mcr/libmacro.h"
+#include "mcr/factory.h"
+#include "mcr/signal/modifier.h"
 
 #include <QRandomGenerator>
 
-void TCreate::base()
+static std::unique_ptr<mcr::Libmacro, mcr::Libmacro::Deleter> _ctx;
+
+TEST_MAIN(TCreate)
+
+void TCreate::canInitialize()
 {
-	mcr_context ctx;
-	size_t bytesLeft;
-	quint32 randBytes;
-	char *iterBytes;
-	for (size_t i = 0; i < COUNT; i++) {
-		/* Start with random bytes */
-		iterBytes = reinterpret_cast<char *>(&ctx);
-		bytesLeft = sizeof(mcr_context);
-		while (bytesLeft) {
-			randBytes = QRandomGenerator::global()->generate();
-			if (bytesLeft < sizeof(quint32)) {
-				memcpy(iterBytes, &randBytes, bytesLeft);
-				bytesLeft = 0;
-			} else {
-				memcpy(iterBytes, &randBytes, sizeof(randBytes));
-				iterBytes += sizeof(randBytes);
-				bytesLeft -= sizeof(randBytes);
-			}
-		}
-		QCOMPARE(mcr_initialize(&ctx), 0);
-
-		verifyContext(ctx);
-
-		QCOMPARE(mcr_deinitialize(&ctx), 0);
-	}
+	auto ctx = mcr::factory::createContext(false);
+	QVERIFY(ctx != nullptr);
+	QVERIFY(!ctx->enabled());
+	QVERIFY(ctx->genericDispatcher() != nullptr);
+	QVERIFY(ctx->genericDispatcher()->empty());
+	QVERIFY(mcr::Libmacro::hasInstance(ctx.get()));
 }
 
-void TCreate::baseHeap()
+void TCreate::canAllocate()
 {
-	mcr_context *ctx;
-	for (size_t i = 0; i < COUNT; i++) {
-		ctx = mcr_allocate();
-		QVERIFY(!!ctx);
-		QCOMPARE(mcr_err, 0);
-
-		verifyContext(*ctx);
-
-		mcr_deallocate(ctx);
-		QCOMPARE(mcr_err, 0);
-	}
+	auto ctx = mcr::factory::createContext(false);
+	auto &sigReg = ctx->signalRegistry();
+	mcr::factory::SignalAllocator alloc = {
+		[]() -> mcr::Signal * { return new mcr::Modifier(nullptr); },
+		[](mcr::Signal *p) { delete static_cast<mcr::Modifier *>(p); },
+		nullptr
+	};
+	sigReg.map("Modifier", alloc);
+	auto sig = sigReg.allocate("Modifier");
+	QVERIFY(sig != nullptr);
+	QCOMPARE(sig->name(), "Modifier");
+	sigReg.deallocate(sig);
 }
 
-void TCreate::wholeContext()
-{
-	for (size_t i = 0; i < COUNT; i++) {
-		mcr::Libmacro context(false);
-	}
-}
-
-void TCreate::wholeContextHeap()
+void TCreate::createNewContext()
 {
 	mcr::Libmacro *context;
 	for (size_t i = 0; i < COUNT; i++) {
-		context = new mcr::Libmacro(false);
-		delete context;
+		std::unique_ptr<mcr::Libmacro, mcr::Libmacro::Deleter> context(
+			mcr::factory::createContext(false));
+		QVERIFY(context != nullptr);
+		verifyContext(*context);
 	}
 }
 
-void TCreate::verifyContext(struct mcr_context &ctx)
+void TCreate::verifyContext(mcr::Libmacro &context)
 {
-	int thrdErr;
-	QCOMPARE(ctx.modifiers, 0);
-	QCOMPARE(ctx.base.isignal_registry_pt, nullptr);
-	QCOMPARE(ctx.base.itrigger_registry_pt, nullptr);
-	thrdErr = mtx_lock(&ctx.base.dispatch_lock);
-	QCOMPARE(thrdErr, thrd_success);
-	mtx_unlock(&ctx.base.dispatch_lock);
-	QCOMPARE(ctx.base.dispatchers, nullptr);
-	QCOMPARE(ctx.base.dispatcher_count, 0);
-	QCOMPARE(ctx.base.generic_dispatcher_flag, true);
-	QCOMPARE(ctx.base.generic_dispatcher_pt, nullptr);
-	QCOMPARE((void *)ctx.standard.iaction.receive, (void *)&mcr_Action_receive);
-	QCOMPARE((void *)ctx.standard.ihid_echo.send, (void *)&mcr_HidEcho_send);
-	QCOMPARE((void *)ctx.standard.ikey.send, (void *)&mcr_Key_send);
-	QCOMPARE((void *)ctx.standard.imodifier.send, (void *)&mcr_Modifier_send);
-	QCOMPARE((void *)ctx.standard.imove_cursor.send, (void *)&mcr_MoveCursor_send);
-	QCOMPARE((void *)ctx.standard.inoop.send, (void *)&mcr_NoOp_send);
-	QCOMPARE((void *)ctx.standard.iscroll.send, (void *)&mcr_Scroll_send);
-	QCOMPARE(ctx.standard.key_modifiers, mcr_key_modifier_defaults);
-	QCOMPARE(ctx.standard.key_modifier_count, mcr_key_modifier_default_count);
-	QCOMPARE(ctx.standard.modifier_keys, mcr_modifier_key_defaults);
-	QCOMPARE(ctx.standard.modifier_key_count, mcr_modifier_key_default_count);
-	QVERIFY(!!ctx.standard.platform_pt);
-	QCOMPARE(ctx.intercept.blockable, false);
-	QVERIFY(!!ctx.intercept.platform_pt);
-}
-
-void TCreate::verifyContext(mcr::Libmacro &ctx)
-{
-
+	(void)context.serial();
+	(void)context.macroRegistry();
+	(void)context.signalRegistry();
+	(void)context.triggerRegistry();
+	QVERIFY(context.genericDispatcher() != nullptr);
+	QVERIFY(context.genericDispatcher()->empty());
+	QCOMPARE(context.genericDispatcher()->count(), 0);
+	QCOMPARE(context.modifiers(), (unsigned int)0);
+	QCOMPARE(context.blockableFlag(), false);
+	QCOMPARE(context.genericDispatchFlag(), false);
 }

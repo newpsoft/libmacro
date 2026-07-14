@@ -1,23 +1,16 @@
 /* Libmacro - A multi-platform, extendable macro and hotkey C library
   Copyright (C) 2013 Jonathan Pelletier, New Paradigm Software
+  SPDX-License-Identifier: LGPL-2.1-only */
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+/*! @file
+ *  @brief Platform definitions for Windows (MSVC/MinGW).
+ *
+ *  Includes Win32 headers with WIN32_LEAN_AND_MEAN and NOMINMAX.
+ *  Defines MCR_EXPORT/MCR_IMPORT using __declspec for DLL symbol
+ *  visibility.
+ */
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
-
-#ifndef MCR_WINDOWS_P_DEFINES_H_
-#define MCR_WINDOWS_P_DEFINES_H_
+#pragma once
 
 /* Windows Version */
 /*# define _WIN32_WINNT _WIN32_WINNT_WINXP      // 0x0501 */
@@ -26,55 +19,33 @@
 /* Exclude rarely-used stuff from Windows headers,
  * and we use min and max for naming. */
 #ifndef WIN32_LEAN_AND_MEAN
-	#define WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
 #ifndef NOMINMAX
-	#define NOMINMAX
+#define NOMINMAX
 #endif
 #include <Windows.h>
 
-#define mcr_snprintf _snprintf
-#define mcr_casecmp _stricmp
-#define mcr_ncasecmp _strnicmp
+// Use default MCR_EXPORT and MCR_IMPORT, detecting MSVC or Mingw.
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/* Unused below here */
 
-/* timespec undefined before 2015 */
-#if _MSC_VER < 1900
+// /* For some reason hwheel is not always defined. */
+// #ifndef MOUSEEVENTF_HWHEEL
+//  #define MOUSEEVENTF_HWHEEL 0x01000
+// #endif
 
-#ifndef __timespec_defined
-#define __timespec_defined 1
+// #ifndef WM_MOUSEHWHEEL
+//  #define WM_MOUSEHWHEEL 0x020E
+// #endif
 
-#ifndef _TIMESPEC_DEFINED
-#define _TIMESPEC_DEFINED
-struct timespec {
-	int tv_sec;
-	int tv_nsec;
-};
-#endif
+// /*! Ignore this input because it is virtual.  Use mcr_send to dispatch and
+//  *  possibly block before the member is sent.
+//  */
+// #define MCR_WM_IGNORE 0x1482
 
-#endif
-
-#endif
-
-/* For some reason hwheel is not always defined. */
-#ifndef MOUSEEVENTF_HWHEEL
-#define MOUSEEVENTF_HWHEEL 0x01000
-#endif
-
-#ifndef WM_MOUSEHWHEEL
-	#define WM_MOUSEHWHEEL 0x020E
-#endif
+// #ifndef MCR_INTERCEPT_WAIT_MILLIS
+//  #define MCR_INTERCEPT_WAIT_MILLIS 5000
+// #endif
 
 
-#ifndef MCR_INTERCEPT_WAIT_MILLIS
-	#define MCR_INTERCEPT_WAIT_MILLIS 5000
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif

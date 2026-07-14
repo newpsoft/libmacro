@@ -1,108 +1,151 @@
 /* Libmacro - A multi-platform, extendable macro and hotkey C library
   Copyright (C) 2013 Jonathan Pelletier, New Paradigm Software
+  SPDX-License-Identifier: LGPL-2.1-only */
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+/*! @file
+ *  @brief @ref mcr::Libmacro Public C++ Api
+ *
+ *  @todo The only essential portion of code to optimize is intercept and dispatch.
+ */
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+/*! @file Libmacro
+ *  @brief @ref mcr::Libmacro Public C++ Api
+ *
+ *  Includes @ref libmacro.h
+ */
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#pragma once
+
+#include "mcr/error.h"
+#include "mcr/macro_registry.h"
+#include "mcr/signal_registry.h"
+#include "mcr/trigger_registry.h"
+#include "mcr/serial.h"
+#include "mcr/dispatcher.h"
+
+#ifdef __cplusplus
+
+/*! @namespace mcr
+*  @brief Libmacro, by Jonathan Pelletier, New Paradigm Software. Alpha version.
+*
+*  1. @ref ISignal is dispatched to @ref IDispatcher using @ref Libmacro::dispatch. @n
+*       1.0.a Disable dispatch for a signal by setting @ref ISignal.dispatchFlag to false. @n
+*       1.0.b Disable dispatch for all of an ISignal type by setting @ref TODOISignal.dispatcher to NULL. @n
+*       1.0.c Disable Libmacro generic dispatch (receive all types) by setting @ref mcr_context.base.generic_dispatch.flag to false. @n
+*   1.1 Dispatching may be received by @ref mcr_DispatchReceiver. @n
+*   1.2 @ref mcr_Trigger_receive may be used to dispatch into @ref mcr_Trigger. @n
+*   1.3 Triggered action may be a @ref mcr_Macro, which sends a list of @ref ISignal. @n
+*  2. If signal is not blocked by dispatching, it is then sent to cause an action. @n
 */
+namespace mcr
+{
 
-/*! \file
- *  \brief Include all Libmacro functionality.
+/**
+ * @brief Public C++ Library context interface.
  *
- *  \todo Create a list of missing functionality when MCR_NOEXTRAS is defined.
+ *  Singleton that owns all Libmacro sub-components (registries, dispatcher,
+ *  serial). Must be disabled with setEnabled(false) before destruction to
+ *  avoid threading errors.
  */
+class MCR_API Libmacro {
+    public:
+	MCR_DECL_INTERFACE(Libmacro)
+	class MCR_API Deleter {
+	    public:
+		void operator()(Libmacro *ptr) const;
+	};
 
-/*! \namespace mcr
- *  \brief Libmacro, by Jonathan Pelletier, New Paradigm Software. Alpha version.
- *
- *  1. \ref mcr_Signal is dispatched to \ref mcr_IDispatcher using \ref mcr_dispatch.\n
- *  		1.0.a Disable dispatch for a signal by setting \ref mcr_Signal.dispatch_flag to false.\n
- *  		1.0.b Disable dispatch for all of an ISignal type by setting \ref mcr_ISignal.dispatcher to NULL.\n
- *  		1.0.c Disable Libmacro generic dispatch (receive all types) by setting \ref mcr_context.base.generic_dispatcher_flag to false.\n
- *  	1.1 Dispatching may be received by \ref mcr_DispatchReceiver.\n
- *  	1.2 \ref mcr_Trigger_receive may be used to dispatch into \ref mcr_Trigger.\n
- *  	1.3 Triggered action may be a \ref mcr_Macro, which sends a list of \ref mcr_Signal.\n
- *  2. If signal is not blocked by dispatching, it is then sent to cause an action.\n
- */
+	/** @brief Get the last created Libmacro module.
+	 *
+	 *  Will throw mcr::Error(EFAULT) if no Libmacro exists, and will not
+	 *  create a singleton object.
+	 */
+	static Libmacro *instance();
+	static inline Libmacro *instance(Libmacro *contextContainerPtrIfNotNull)
+	{
+		return contextContainerPtrIfNotNull ?
+			       contextContainerPtrIfNotNull :
+			       instance();
+	}
+	/** @brief Check if a specific context pointer is the current instance.
+	 *  @param contextContainerPtr Pointer to test.
+	 *  @return true if contextContainerPtr matches the current instance.
+	 */
+	static bool hasInstance(Libmacro *contextContainerPtr);
 
-//! \todo Separate context and functions to context.h?
+	/** @brief Check if hardware interception is active and blocking is available.
+	 *  @return true if hardware intercept is grabbed.
+	 */
+	virtual bool blockableFlag() const = 0;
+	/** @brief Enable or disable hardware interception.
+	 *  @param flag true to enable hardware intercept.
+	 */
+	virtual void setBlockableFlag(bool flag) = 0;
+	/** @brief Check if generic dispatch is enabled for all signals.
+	 *  @return true if generic dispatch is active.
+	 */
+	virtual bool genericDispatchFlag() const = 0;
+	/** @brief Enable or disable generic dispatch for all signals.
+	 *  @param flag true to enable generic dispatch.
+	 */
+	virtual void setGenericDispatchFlag(bool flag) = 0;
+	/** @brief Get the current set of active modifier flags.
+	 *  @return Bitmask of active modifiers.
+	 */
+	virtual unsigned int modifiers() const = 0;
+	/** @brief Set the active modifier flags.
+	 *  @param mods Bitmask of modifiers to set.
+	 */
+	virtual void setModifiers(unsigned int mods) = 0;
 
-#ifndef MCR_LIBMACRO_H_
-#define MCR_LIBMACRO_H_
+	/** @brief Get the generic dispatcher that receives all signal types.
+	 *  @return Pointer to the generic dispatcher.
+	 */
+	virtual IDispatcher *genericDispatcher() const = 0;
+	/** @brief Set the generic dispatcher.
+	 *  @param value Dispatcher to use for generic signal dispatch.
+	 */
+	virtual void setGenericDispatcher(IDispatcher *value) = 0;
 
-// Includes all modules
-#include "mcr/context.h"
+	/** @brief Get the serialization interface for name/value mapping.
+	 *  @return Reference to the serial interface.
+	 */
+	virtual ISerial &serial() = 0;
+	virtual const ISerial &serial() const = 0;
 
-#ifdef __cplusplus
-#ifndef MCR_NOEXTRAS
-	#include "mcr/extras/extras.h"
-#endif
-#endif
+	/** @brief Get the macro registry.
+	 *  @return Reference to the macro registry.
+	 */
+	virtual IMacroRegistry &macroRegistry() = 0;
+	virtual const IMacroRegistry &macroRegistry() const = 0;
+	/** @brief Get the signal registry.
+	 *  @return Reference to the signal registry.
+	 */
+	virtual ISignalRegistry &signalRegistry() = 0;
+	virtual const ISignalRegistry &signalRegistry() const = 0;
+	/** @brief Get the trigger registry.
+	 *  @return Reference to the trigger registry.
+	 */
+	virtual ITriggerRegistry &triggerRegistry() = 0;
+	virtual const ITriggerRegistry &triggerRegistry() const = 0;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*! \ref malloc and \ref mcr_initialize a \ref mcr_context
- *
- *  Will not load contracts.
- *  Will set \ref mcr_err.
- *  \return Dynamic and initialized Libmacro context, or NULL on error
- */
-extern MCR_API struct mcr_context *mcr_allocate();
-/*! \ref mcr_deinitialize and \ref free.
- *
- *  Only use with a context created by malloc or \ref mcr_allocate.
- *  Because of threading do not deallocate in a deconstructor or on program
- *  exit.
- *  Will set \ref mcr_err.
- *  \param ctx Libmacro context
- *  \return \ref reterr
- */
-extern MCR_API int mcr_deallocate(struct mcr_context *ctx);
-/*! Initialize Libmacro resources
- *
- *  Will set \ref mcr_err.
- *  \param ctx Libmacro context
- *  \return \ref reterr
- */
-extern MCR_API int mcr_initialize(struct mcr_context *ctx);
-/*! Clean all resources used by Libmacro.
- *
- *  Because of threading do not deinitialize in a deconstructor or on program
- *  exit.
- *  Will set \ref mcr_err.
- *  \param ctx Libmacro context
- *  \return \ref reterr
- */
-extern MCR_API int mcr_deinitialize(struct mcr_context *ctx);
-/*! Register standard types and map their given names.
- *
- *  \pre context must be initialized
- *  \ref mcr_base.isignal_registry_pt
- *  \ref mcr_base.itrigger_registry_pt
- *  \param ctx Libmacro context
- *  \return \ref reterr
- */
-extern MCR_API int mcr_load_contracts(struct mcr_context *ctx);
-/*! Minimize allocation used by Libmacro.
- *
- *  \param ctx Libmacro context
- */
-extern MCR_API void mcr_trim(struct mcr_context *ctx);
-
-#ifdef __cplusplus
+	/** @brief Check if the library is enabled.
+	 *  @return true if enabled.
+	 */
+	virtual bool enabled() const = 0;
+	/** @brief Enable or disable the library.
+	 *  @param val true to enable, false to disable.
+	 */
+	virtual void setEnabled(bool val) = 0;
+	/** @brief Get the global macro thread limit.
+	 *  @return The current global thread limit.
+	 */
+	unsigned int globalThreadLimit() const;
+	/** @brief Set the global macro thread limit.
+	 *  @param val New global thread limit.
+	 */
+	void setGlobalThreadLimit(unsigned int val);
+};
 }
 #endif
 
-#endif

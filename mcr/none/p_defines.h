@@ -1,25 +1,15 @@
 /* Libmacro - A multi-platform, extendable macro and hotkey C library
   Copyright (C) 2013 Jonathan Pelletier, New Paradigm Software
+  SPDX-License-Identifier: LGPL-2.1-only */
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+/*! @file
+ *  @brief Fallback platform definitions when no platform is detected.
+ *
+ *  Uses default visibility attributes. Define MCR_PLATFORM to override.
+ */
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+#pragma once
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
+// Use default MCR_EXPORT and MCR_IMPORT, detecting GCC or Clang.
 
-#ifndef MCR_NONE_P_DEFINES_H_
-#define MCR_NONE_P_DEFINES_H_
 
-/* Make sure we have some base definitions. */
-#include "mcr/defines.h"
-
-#endif

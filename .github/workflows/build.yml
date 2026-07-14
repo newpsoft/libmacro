@@ -10,11 +10,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2.1.0
 
-    - name: Lib deps
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libssl-dev
-
     - name: Cache Qt
       id: cache-qt
       uses: actions/cache@v1
@@ -26,14 +21,14 @@ jobs:
       uses: jurplel/install-qt-action@v2
       with:
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        version: 5.14.2
+        version: 6.11.1
         host: linux
         target: desktop
 
     - name: CMake Build
       run: |
         git fetch origin master
-        cmake -B bin -DBUILD_DOC=OFF -DBUILD_PACKAGE=OFF -DBUILD_SHARED_LIBS=ON -DBUILD_SIGNED=OFF -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release .
+        cmake -B bin -DBUILD_DOC=OFF -DBUILD_PACKAGE=OFF -DBUILD_SHARED_LIBS=ON -DBUILD_SIGNED=OFF -DBUILD_TESTING=ON -DTEST_TERMINAL=OFF -DCMAKE_BUILD_TYPE=Release .
         cmake --build bin --target tst_libmacro
 
     - name: tst_libmacro
