@@ -1,0 +1,9 @@
+// Read from /usr/include/linux/input-event-codes.h,// Assuming US layout keyboard. An application can fix this with localization files at runtime., 
+// key is character,// first value is integer key code,
+{ '\b',VK_BACK },
+{ '\t',VK_TAB },
+{ '\n',VK_RETURN },
+{ 0x1C,VK_ESCAPE },// \e
+{ '\r',VK_HOME },
+{ ' ',VK_SPACE },
+{ '\v',VK_DOWN },

@@ -32,7 +32,6 @@ Thumbs.db
 *.rc
 /.qmake.cache
 /.qmake.stash
-bin/
 out/
 obj/
 doxygen/
@@ -41,6 +40,7 @@ nohup.*
 *.log
 *.swp
 *.lib
+.repowise/
 
 # qtcreator generated files
 *.pro.user*
@@ -53,6 +53,7 @@ CMakeLists.txt.user*
 .*.swp
 
 # Visual Studio generated files
+/.vscode/
 *.ib_pdb_index
 *.idb
 *.ilk
@@ -88,9 +89,15 @@ target_wrapper.sh
 *.jsc
 
 # CMake build files
-CMakeFiles/
+/CMakeFiles/
 cmake_install.cmake
 *_automoc.cpp
 tst_libmacro
 tst_intercept
 CMakeCache.txt
+/build/
+/.cache/
+
+# graphify build files
+/graphify-out/
+
