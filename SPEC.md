@@ -448,15 +448,28 @@ The thread-local `mcr_err` variable and all related infrastructure were removed 
 
 ## Open Issues
 
+### Simplify
+- Suggest ways library usage can be simplified.
+
 ### Plugins System Enhancement
-- **Library Listing & Management**:
-  - Create a feature to list all available libraries in a specified directory.
-  - Implement a checkbox mechanism to select which libraries should load at startup.
+- **Plugin Definition**:
+  - A plugin is a library designed to extend this C++ library's functionality. A Libmacro plugin is intended to register types to Libmacro context registries. Indended extend classes, that may be registered to Registry factories, are ISignal, ITrigger, IDispatcher, and IMacro. A plugin may also be used to expose Libmacro functionality to other runtimes. Record this id docs/architecture.md
+  - Suggest how a plugin should be defined.
+    - How should a plugin be discovered, enabled, and finally the functions to execute to register additional functionality.
+    - Plugins should also have a function to cleanup or release resources. Add a separate function for the plugin to be disabled, without clearing all resources for program shutdown.
+  - Suggest required files to define and discover a plugin.
+    - Show pros and cons to give plugins version numbers.
+    - Show pros and cons for plugins to declare supported Libmacro versions.
+    - Show pros and cons for a plugin to declare or restrict other plugin and version dependencies.
+    - Show pros and cons for plugins to be loaded with or without an init config file with all plugin declarations.
+- **Plugin Listing & Management**:
+  - Suggest whether the Libmaco library or the client application should list and manage which plugins are to be loaded and enabled.
+  - Create a feature to list all available plugins in a specified directory. Suggest pros and cons to include libraries in the current working directory and the program executable directory. Suggest pros and cons of no automatic discovery, and requiring the client application to discover plugins.
+  - Limit which plugins are to be loaded and enabled. The enabled plugins should be remembered in a config file. Suggest whether Libmacro should manage the config file, or the client application.
   - Persist the list of selected libraries across sessions (Remember all selected libs).
-  - Add visual indicators for library status:
-    - Red 'X' for libraries that fail to load.
-    - Green checkmark for currently loaded libraries.
-    - Strikethrough file name if the library path no longer exists.
+- **Separation of Library and Application Ownership of Concerns**
+  - Refer to the Separation of Concerns principle. Refer to other decisions made by the plugin system. Show which decisions do not follow the Separation of Concerns principle.
+  - Show pros and cons of which features of plugin management should be managed by the Libmacro library or the client application.
 
 ### Dispatch Mechanism Consideration
 - Investigate dispatching an `mcr_Signal` copy as a message to the dispatch thread.
@@ -466,4 +479,10 @@ The thread-local `mcr_err` variable and all related infrastructure were removed 
 - Audit exported types/classes for templates that cannot be exported; identify candidates for header-only implementation without `MCR_API`.
 
 ### Safety & Correctness Review
-- Perform a memory safety audit (UAF, double-free, buffer overflows, null dereferences, etc.) focusing on `mcr/api.h`, platform sources, and `mcr/template/list.h`.
+- Perform a memory safety audit (UAF, double-free, buffer overflows, null dereferences, etc.).
+
+### Optimize dispatch and send workflow
+- **Dispatch Workflow Optimizations**:
+  - Review dispatch workflow. Suggest ways to optimize dispatch speed, from initial call to receivers. Maintain security and memory safety.
+- **Signal Send Workflow Optimizations**:
+  - Review signal send workflow. Suggest ways to optimize signal send functions. Focus on signal create, send function, and all connections to the dispatch workflow.
