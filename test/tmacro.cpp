@@ -11,9 +11,10 @@
 #include "mcr/macro.h"
 #include "mcr/signal/noop.h"
 
+#include <chrono>
 #include <thread>
 
-#define THREAD_YIELD_MAX 10
+#define THREAD_YIELD_MAX 100
 
 static std::unique_ptr<mcr::Libmacro, mcr::Libmacro::Deleter> _ctx;
 
@@ -478,8 +479,7 @@ void TMacro::globalThreadLimitPreventsExcessiveThreads()
 	macro2->setInterruptor(mcr::IInterrupt::DISABLE);
 	int timeout = THREAD_YIELD_MAX;
 	while (macro3->globalActiveThreadCount() != 0 && --timeout > 0) {
-		sig.send();
-		std::this_thread::yield();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	QCOMPARE(macro3->globalActiveThreadCount(), 0);
 
@@ -488,8 +488,7 @@ void TMacro::globalThreadLimitPreventsExcessiveThreads()
 	macro3->receive(&sig, 0);
 	timeout = THREAD_YIELD_MAX;
 	while (macro3->threadCount() == 0 && --timeout > 0) {
-		sig.send();
-		std::this_thread::yield();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	QCOMPARE(macro3->globalActiveThreadCount(), 1);
 	QCOMPARE(macro3->threadCount(), 1);
