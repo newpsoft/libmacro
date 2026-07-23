@@ -83,7 +83,6 @@ class MCR_API Trigger : public IReceive {
 	}
 };
 
-template struct MCR_API List<Trigger>;
 /**
  * @brief A list of Triggers that also acts as an IReceive.
  *

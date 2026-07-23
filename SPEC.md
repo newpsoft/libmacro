@@ -455,8 +455,10 @@ The thread-local `mcr_err` variable and all related infrastructure were removed 
 - Investigate dispatching an `mcr_Signal` copy as a message to the dispatch thread.
 - Evaluate a message queue as an alternative to thread-local events.
 
-### ABI & Export Audit
-- Audit exported types/classes for templates that cannot be exported; identify candidates for header-only implementation without `MCR_API`.
+### ~~ABI & Export Audit~~ (FIXED 2026-07-23)
+- ~~Audit exported types/classes for templates that cannot be exported; identify candidates for header-only implementation without `MCR_API`.~~
+
+**Resolution:** Removed 5 `template struct MCR_API` explicit instantiations from `mcr/template/list.h`, `mcr/signal.h`, and `mcr/trigger.h`. The `List<T>` template was already fully header-only (all methods inline in the header). The explicit instantiations with `MCR_API` were ABI-hazardous — `__declspec(dllexport)` / `visibility("default")` on template specializations forces consumers to match the exact compiler, STL, and flags. The codebase already followed the correct pattern for header-only templates (`FunctorSignal`, `FunctorActor`, `FunctorTrigger`, `TSignalAllocator<T>`, `TTriggerAllocator<T>`). Typedefs (`CStringList`, `IntList`, `UIntList`, `SignalList`, `TriggerList`) unchanged. Build succeeds, all 80 tests pass.
 
 ### Safety & Correctness Review
 - Perform a memory safety audit (UAF, double-free, buffer overflows, null dereferences, etc.).
