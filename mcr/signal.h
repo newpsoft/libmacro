@@ -49,7 +49,6 @@ class MCR_API Signal {
 	virtual void send() = 0;
 };
 
-template struct MCR_API List<Signal>;
 /**
  * @brief A list of Signal pointers that can be sent as a group.
  */

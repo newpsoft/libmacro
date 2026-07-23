@@ -115,9 +115,6 @@ template <typename ElementT> struct List {
 		return !count;
 	}
 };
-template struct MCR_API List<const char *>;
-template struct MCR_API List<int>;
-template struct MCR_API List<unsigned int>;
 /** @brief List of C strings. */
 typedef List<const char *> CStringList;
 /** @brief List of integers. */
