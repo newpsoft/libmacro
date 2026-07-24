@@ -19,6 +19,8 @@
 
 namespace mcr
 {
+/* Global thread management -- shared across all MacroImpl instances.
+ * g_globalThreadMutex protects both g_threadMax and g_activeThreadCount. */
 unsigned int g_threadMax = 0x10;
 unsigned int g_activeThreadCount = 0;
 std::mutex g_globalThreadMutex;
@@ -298,6 +300,8 @@ void MacroImpl::setThreadMax(unsigned int val)
 
 void MacroImpl::start()
 {
+	/* Check interruptor state and either spawn a thread, resume from
+	 * INTERRUPT, or do nothing for INTERRUPT_ALL/DISABLE. */
 	std::unique_lock<std::mutex> lock(_mutex);
 	switch (interruptor()) {
 	case CONTINUE:
@@ -321,6 +325,12 @@ void MacroImpl::start()
 
 int MacroImpl::run()
 {
+	/* Main execution loop. Each iteration:
+	 * 1. Check for interrupts
+	 * 2. If idle and not sticky (or multiple threads), exit
+	 * 3. Decrement queue and dispatch signals
+	 * 4. Pause if interrupted
+	 * Loops until interrupted, disabled, or idle. */
 	if (!runPreamble())
 		return 0;
 	try {

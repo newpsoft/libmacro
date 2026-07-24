@@ -1,70 +1,98 @@
 # Libmacro
 
-Libmacro is a multi-platform, extendable macro and hotkey C library.
+Libmacro is a multi-platform, extensible macro and hotkey C/C++ library.
+It provides signal dispatch, trigger matching, modifier tracking, and a
+serialization layer for mapping names to enum values -- all with a plugin
+architecture for custom signal and trigger types.
 
-# License
+## License
 
 Libmacro uses the LGPL v2.1 license. Please refer to the [LICENSE](./LICENSE)
 or [lgpl-2.1.txt](./lgpl-2.1.txt) files for more information.
 
-## Supported compilers
+## Requirements
 
-- GCC 4.8+
-- Visual Studio 2015+
-- Clang needs testing for version 3.3+
+- **CMake** 3.10+
+- **C17 / C++17** compiler:
+  - GCC 7+
+  - Clang 5+
+  - MSVC 2017+ (Visual Studio)
+- **Threads** (pthreads on Linux, Win32 threads on Windows)
+- **Qt6Core** and **Qt6Test** (testing only)
 
-## Supported cpack installer compilers
+See [docs/requirements.md](docs/requirements.md) for full details.
 
-- NSIS
-- More research required
+## Building
 
-## Building source
+```sh
+cmake -B build -DBUILD_TESTING=ON .
+cmake --build build
+```
 
-Required build tools:
+Key CMake options:
 
-- cmake
-  - Optionally built with QtCreator or other IDE using cmake generators.
-    Instructions not included.
-  - Given build configuration \<BUILD_TYPE\> cmake and cpack may require the
-    same command-line switch.
-    - cmake: `cmake --config <BUILD_TYPE>`
-    - cpack: `cpack -C <BUILD_TYPE>`
-  - May have to set environment variables Qt6_DIR or Qt6Core_DIR, such as
-    `export Qt6_DIR=<cmake-dir>/Qt6`
-  - Alternatively one may set CMAKE_PREFIX_PATH where cmake is in the
-    subdirectory \<CMAKE_PREFIX_PATH\>/lib/cmake/ and Qt6 cmake files are in
-    the cmake subdirectory.
-    - Example for windows, using QT 5.13.1 and MSVC 2017:
-      "CMAKE_PREFIX_PATH=\<QT directory\>/5.13.1/msvc2017_64"
-- All makefile generators and build tools for your environment and target
-- cmake modules
-  - Threads: Always required until further notice. Message loops may be an
-    alternative in the future.
-  - Git: Required for versioning
-  - Qt6Core: Required for testing
-  - Qt6Test: Required for testing
+| Option | Default | Description |
+|--------|---------|-------------|
+| `BUILD_TESTING` | ON | Build test executables |
+| `BUILD_DOC` | ON (Release) | Build Doxygen documentation |
+| `BUILD_SHARED_LIBS` | ON | Build shared library (OFF for static) |
+| `BUILD_PACKAGE` | ON (Release) | Build CPack packaging materials |
+| `TEST_TERMINAL` | ON | Tests have terminal access |
+| `CMAKE_BUILD_TYPE` | -- | `Debug` or `Release` |
 
-Supported optional cmake arguments
+See [docs/cmake_modules.md](docs/cmake_modules.md) for all options.
 
-- Default custom cmake options: `-DBUILD_DOC=ON
--DBUILD_PACKAGE=ON -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=ON`
-  - For a debug build doc and packaging are turned off by default.
-- BUILD_DOC: Also build doxygen documentation.
-- BUILD_PACKAGE: Build packaging materials to use with cpack.
-- BUILD_SHARED_LIBS: A library that is not shared is static.
-- BUILD_TESTING: Also build test, development and debugging
-  applications.
-  automatically.
-- CMAKE_BUILD_TYPE: Debug or Release
-- CMAKE_CXX_COMPILER: GCC, Visual Compiler, or Clang executable
-- CMAKE_C_COMPILER: GCC, Visual Compiler, or Clang executable
-- CMAKE_INSTALL_PREFIX: Install location
-- CMAKE_PREFIX_PATH: Custom locations for headers, libraries, and QT version
-  base directories.
-- Qt6_DIR, Qt6Core_DIR, Qt6Test_DIR: Qt cmake directories.
-- TEST_TERMINAL: Automated tests have access to a terminal. Not all tests will be run if no terminal is available.
+The library target is `mcr::Libmacro` (alias). On Linux the output is
+`libmacro.so` (`macro`), on Windows `libmacro.dll` (`libmacro`).
 
-### Contributing
+## Quick start
+
+```cpp
+#include "mcr/libmacro.h"
+
+int main()
+{
+    mcr::Libmacro ctx;
+    ctx.setEnabled(true);
+
+    // Register a signal type
+    auto &sigReg = ctx.signalRegistry();
+    sigReg.map<mcr::Modifier>();
+
+    // Register a trigger type
+    auto &trigReg = ctx.triggerRegistry();
+    trigReg.map<mcr::Action>();
+
+    // Create and configure a macro
+    mcr::Macro macro(&ctx);
+
+    // Clean up -- disable before destruction
+    ctx.setEnabled(false);
+    return 0;
+}
+```
+
+See [docs/getting-started.md](docs/getting-started.md) for a full tutorial.
+
+## Documentation
+
+- [Getting started](docs/getting-started.md) -- 5-minute tutorial
+- [Architecture](docs/architecture.md) -- Design and subsystems
+- [Usage](docs/usage.md) -- Extending name-value mappings
+- [Platform guide](docs/platform.md) -- Platform-specific symbols
+- [CMake options](docs/cmake_modules.md) -- Build configuration
+- [Requirements](docs/requirements.md) -- Dependencies and toolchains
+- [Testing](docs/testing.md) -- Test suites and coverage
+- API reference: build with `-DBUILD_DOC=ON` and open `build/doxygen/html/index.html`
+
+## Supported platforms
+
+- Linux
+- Windows
+
+See [docs/platform.md](docs/platform.md) for platform-specific details.
+
+## Contributing
 
 Please follow style guides when it makes sense. clang-format will be used for all
 style formatting and manual formatting will not be kept. The following are
@@ -77,19 +105,19 @@ known style guidelines used in this project.
   [https://google.github.io/styleguide/cppguide.html#Names_and_Order_of_Includes](https://google.github.io/styleguide/cppguide.html#Names_and_Order_of_Includes)
 - More of the Google style guide may be adopted in the future.
 
-#### Style source
+### Style source
 
 clang-format is required for correct formatting. [scripts/style](scripts/style) runs clang-format for
 all source files, with KNF options. Run from any directory to format any C
 and C++ header and source files in that directory. Run with `scripts/style --help`
 for more information.
 
-#### Platform Style Guides
+### Platform Style Guides
 
 - Refer to [docs/platform.md](docs/platform.md)
 - Platform files use "p\_" as a naming prefix.
 
-#### Internal API
+### Internal API
 
 Symbols in the `mcr::internal` namespace are library-internal and not part of the
 public API. Consumers must not depend on them.

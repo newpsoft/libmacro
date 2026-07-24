@@ -11,7 +11,11 @@ namespace mcr
 {
 
 /*! Generic dispatcher type for any signal type. Will always dispatch to every
- *  receiver. */
+ *  receiver. The _receivers set stores all registered IReceive pointers.
+ *  Dispatch iterates the set and calls receive() on each; if any receiver
+ *  returns true (block), dispatch stops immediately. This is a simple
+ *  broadcast dispatcher with no signal-type filtering -- all signals reach
+ *  all receivers. */
 class MCR_API Dispatcher final : public IDispatcher {
     public:
 	Libmacro *context = nullptr;
@@ -91,6 +95,9 @@ void Dispatcher::clear() noexcept
 
 bool Dispatcher::dispatch(Signal *signalPtr, unsigned int mods)
 {
+	/* Broadcast signal to all receivers. If any receiver returns true
+	 * (block), stop immediately and return true. Otherwise return false
+	 * (not blocked). */
 	bool blockFlag = false;
 	for (auto iter : _receivers) {
 		if (!iter)

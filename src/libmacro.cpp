@@ -19,7 +19,10 @@ static std::vector<Libmacro *> _registryStack;
 static std::unordered_set<Libmacro *> _registrySet;
 static std::mutex _registryMutex;
 
-/*! Public C++ Api */
+/*! Public C++ Api.  The context registry (global vector + set, protected
+ *  by _registryMutex) allows multiple Libmacro instances to coexist.
+ *  instance() returns the most recently created one. Sub-components are
+ *  owned via unique_ptr and created in the constructor. */
 class MCR_API LibmacroImpl final : public Libmacro {
     public:
 	/*! @ref ctor

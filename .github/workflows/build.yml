@@ -28,9 +28,17 @@ jobs:
     - name: CMake Build
       run: |
         git fetch origin master
-        cmake -B bin -DBUILD_DOC=OFF -DBUILD_PACKAGE=OFF -DBUILD_SHARED_LIBS=ON -DBUILD_SIGNED=OFF -DBUILD_TESTING=ON -DTEST_TERMINAL=OFF -DCMAKE_BUILD_TYPE=Release .
+        cmake -B bin -DBUILD_DOC=ON -DBUILD_PACKAGE=OFF -DBUILD_SHARED_LIBS=ON -DBUILD_SIGNED=OFF -DBUILD_TESTING=ON -DTEST_TERMINAL=OFF -DCMAKE_BUILD_TYPE=Release .
         cmake --build bin --target tst_libmacro
+        cmake --build bin --target doxygen || true
 
     - name: tst_libmacro
       run: bin/tst_libmacro
+
+    - name: Upload Docs
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: doxygen-docs
+        path: bin/doxygen/html/
 
