@@ -131,3 +131,61 @@ include(config/coverage.cmake)
 
 # Platform variables and MCR_DEBUG required from libmacro.cmake
 include(config/cpack.cmake)
+
+# ── Python bindings (optional) ───────────────────────────────────────────
+option(BUILD_PYTHON "Build Python bindings via pybind11" OFF)
+if (BUILD_PYTHON)
+	# Python include directory — prefer sysconfig, fall back to extracted
+	# CPython headers (e.g. CI without python3-dev).
+	find_package(Python3 COMPONENTS Interpreter REQUIRED)
+	execute_process(
+		COMMAND "${Python3_EXECUTABLE}" -c
+			"import sysconfig; print(sysconfig.get_path('include'))"
+		OUTPUT_VARIABLE _py_include
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+	if (NOT EXISTS "${_py_include}/Python.h")
+		set(_py_include "/tmp/libpy3dev_extracted/usr/include/python3.11")
+		set(_py_include_multiarch
+			"/tmp/libpy3dev_extracted/usr/include")
+	endif ()
+	# Seed the old-variable form so pybind11's find_package(PythonLibs) works.
+	set(PYTHON_INCLUDE_DIR "${_py_include}" CACHE PATH "")
+
+	# pybind11 — vendored as a git submodule.
+	set(PYBIND11_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11"
+		CACHE PATH "Path to pybind11 source directory")
+	if (NOT EXISTS "${PYBIND11_SOURCE_DIR}/CMakeLists.txt")
+		message(FATAL_ERROR
+			"pybind11 submodule not found at ${PYBIND11_SOURCE_DIR}. "
+			"Run: git submodule update --init --recursive")
+	endif ()
+	add_subdirectory(${PYBIND11_SOURCE_DIR} pybind11 EXCLUDE_FROM_ALL)
+
+	set(LIBMACRO_PYTHON_MODULE "_libmacro")
+	add_library(${LIBMACRO_PYTHON_MODULE} MODULE
+		python/libmacro.cpp)
+	target_link_libraries(${LIBMACRO_PYTHON_MODULE} PRIVATE
+		${LIBMACRO_TARGET}
+		pybind11::headers)
+	target_include_directories(${LIBMACRO_PYTHON_MODULE} PRIVATE
+		${_py_include})
+	if (_py_include_multiarch)
+		target_include_directories(${LIBMACRO_PYTHON_MODULE} PRIVATE
+			${_py_include_multiarch})
+	endif ()
+	target_compile_features(${LIBMACRO_PYTHON_MODULE} PRIVATE
+		cxx_std_17)
+	target_compile_definitions(${LIBMACRO_PYTHON_MODULE} PRIVATE
+		-DLIBMACRO_LIBRARY)
+	# Detect Python extension suffix.
+	execute_process(
+		COMMAND "${Python3_EXECUTABLE}" -c
+			"import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+		OUTPUT_VARIABLE _py_suffix
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+	# Prevent "lib" prefix; use Python extension suffix.
+	set_target_properties(${LIBMACRO_PYTHON_MODULE} PROPERTIES
+		PREFIX ""
+		SUFFIX "${_py_suffix}"
+		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python")
+endif ()
