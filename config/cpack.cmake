@@ -14,13 +14,12 @@ if (BUILD_PACKAGE)
 		"${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 	set (CPACK_PACKAGE_VERSION_MAJOR "${MCR_VER_MAJ}")
 	set (CPACK_PACKAGE_VERSION_MINOR "${MCR_VER_MIN}")
-	set (CPACK_PACKAGE_VERSION_PATCH "${GIT_REVISION}")
 	set (CPACK_PACKAGE_VENDOR "New Paradigm Software")
 	set (CPACK_PACKAGE_NAME "Libmacro")
 	set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "Libmacro is a multi-platform, extendable macro and hotkey C library.")
 	set (CPACK_PACKAGE_INSTALL_DIRECTORY "Libmacro ${MCR_VER}")
 
-	set (CPACK_PACKAGE_INSTALL_REGISTRY_KEY "Libmacro ${MCR_VER}.${GIT_REVISION}")
+	set (CPACK_PACKAGE_INSTALL_REGISTRY_KEY "Libmacro ${MCR_VER}")
 
 	if (WIN32)
 		# There is a bug in NSIS that does not handle full unix paths properly. Make

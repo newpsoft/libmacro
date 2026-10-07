@@ -16,12 +16,12 @@ endif (BUILD_SHARED_LIBS)
 
 # Defines MCR_VER, MCR_VER_MAJ, MCR_VER_MIN, MCR_DEBUG, MCR_PLATFORM
 include(config/libmacro.cmake)
-# Defines GIT_EXECUTABLE, GIT_REVISION, GIT_BRANCH
+# Defines GIT_EXECUTABLE, GIT_BRANCH
 include(config/git.cmake)
 # Create documentation: build + install targets if BUILD_DOC
 include(config/doxygen.cmake)
 
-project(libmacro VERSION ${MCR_VER}.${GIT_REVISION} HOMEPAGE_URL "https://sites.google.com/view/newparadigmsoftware" LANGUAGES C CXX)
+project(libmacro VERSION ${MCR_VER} HOMEPAGE_URL "https://sites.google.com/view/newparadigmsoftware" LANGUAGES C CXX)
 # lib is not prepended to library file name on windows
 get_directory_property(hasParent PARENT_DIRECTORY)
 if (windows)
@@ -70,9 +70,8 @@ file(GLOB_RECURSE COMMON_HEADERS mcr/*.h mcr/*.hpp mcr/*.hxx mcr/*.inl)
 file(GLOB_RECURSE LIBMACRO_ASSETS assets/*)
 file(GLOB_RECURSE LIBMACRO_BIN bin/*)
 set(COMMON_DEFINES
-	-DVERSION=${MCR_VER}.${GIT_REVISION}
+	-DVERSION=${MCR_VER}
 	-DGIT_BRANCH=${GIT_BRANCH}
-	-DGIT_REVISION=${GIT_REVISION}
 	)
 
 # Library config files

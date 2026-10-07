@@ -11,7 +11,7 @@ cmake --build build
 - C standard: C17, C++ standard: C++17.
 - On Linux, requires `Threads`, `Qt6Core`+`Qt6Test` (testing only).
 - VSCode config sets `CMAKE_PREFIX_PATH=/usr/lib64/cmake/Qt6`.
-- Version = `MCR_VER.GIT_REVISION` where GIT_REVISION = commit count on `master`.
+- Version = `MCR_VER`.
 
 ## Tests
 

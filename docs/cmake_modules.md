@@ -66,7 +66,6 @@ Extracts from the local repository:
 
 | Variable | Description |
 |----------|-------------|
-| `GIT_REVISION` | Commit count on `master` |
 | `GIT_BRANCH` | Current branch name |
 | `GIT_EXECUTABLE` | Path to git binary |
 
